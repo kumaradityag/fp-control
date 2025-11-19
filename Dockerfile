@@ -1,9 +1,9 @@
 # parameters
-ARG REPO_NAME="<REPO_NAME_HERE>"
-ARG DESCRIPTION="<DESCRIPTION_HERE>"
-ARG MAINTAINER="<YOUR_FULL_NAME> (<YOUR_EMAIL_ADDRESS>)"
+ARG REPO_NAME="fp-control"
+ARG DESCRIPTION="Duckietown Fall 2025 Final Project - Control for Lane Following"
+ARG MAINTAINER="Kumaraditya Gupta (kumaraditya.gupta@mila.quebec)"
 # pick an icon from: https://fontawesome.com/v4.7.0/icons/
-ARG ICON="cube"
+ARG ICON="bicycle"
 
 # ==================================================>
 # ==> Do not change the code below this line
