@@ -1,0 +1,13 @@
+<launch>
+  <arg name="veh" doc="Vehicle name (namespace)"/>
+  <arg name="param_file_name" default="default" doc="Specify a param file." />
+
+  <arg name="pkg_name"  value="trajectory_planner"/>
+  <arg name="node_name" default="trajectory_planner_node"/>
+
+  <group ns="$(arg veh)">
+    <node name="$(arg node_name)" pkg="$(arg pkg_name)" type="$(arg node_name).py" output="screen">
+        <rosparam command="load" file="$(find trajectory_planner)/config/$(arg node_name)/$(arg param_file_name).yaml"/>
+    </node>
+  </group>
+</launch>

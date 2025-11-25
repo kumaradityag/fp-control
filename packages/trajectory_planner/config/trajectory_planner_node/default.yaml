@@ -1,0 +1,9 @@
+max_forward: 1.0
+n_samples: 25
+lookahead_distance: 0.15
+
+# Debug Visualization Parameters
+grid_size: 4
+scale: 1000
+padding: 80
+resolution: 0.3

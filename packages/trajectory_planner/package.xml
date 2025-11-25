@@ -1,0 +1,11 @@
+<package>
+  <name>trajectory_planner</name>
+  <version>0.0.1</version>
+  <description>
+  Trajectory Planner package for Pure Pursuit Lane Following in Duckietown.
+  </description>
+  <maintainer email="kumaraditya.gupta@mila.quebec">Kumaraditya Gupta</maintainer>
+  <license>None</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+</package>

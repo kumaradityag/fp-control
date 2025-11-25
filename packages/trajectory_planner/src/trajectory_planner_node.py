@@ -1,0 +1,202 @@
+#!/usr/bin/env python3
+
+import numpy as np
+import cv2
+import rospy
+
+from cv_bridge import CvBridge
+from nav_msgs.msg import Path
+from sensor_msgs.msg import CompressedImage
+from geometry_msgs.msg import PoseStamped
+from duckietown_msgs.msg import SegmentList, Segment as SegmentMsg
+
+from duckietown.dtros import DTROS, NodeType, TopicType
+from dt_computer_vision.ground_projection.types import GroundPoint
+from dt_computer_vision.ground_projection.rendering import (
+    draw_grid_image,
+    robot_to_image_frame,
+)
+
+from trajectory_planner.include import trajectory_generation
+
+
+class TrajectoryPlannerNode(DTROS):
+    """
+    Computes a centerline trajectory from projected lane segments
+    and publishes a Path for pure pursuit control.
+
+    Also publishes a debug visualization identical
+    to the ground_projection debug output.
+    """
+
+    def __init__(self, node_name):
+        super(TrajectoryPlannerNode, self).__init__(
+            node_name=node_name,
+            node_type=NodeType.PLANNING,
+        )
+
+        # Parameters
+        self.max_forward = rospy.get_param("~max_forward", 1.0)
+        self.n_samples = rospy.get_param("~n_samples", 25)
+        self.lookahead_distance = rospy.get_param("~lookahead_distance", 0.35)
+
+        # debug grid params (match ground_projection)
+        self.grid_size = rospy.get_param("~grid_size", 4)
+        self.scale = rospy.get_param("~scale", 1000)
+        self.padding = rospy.get_param("~padding", 80)
+        self.resolution = rospy.get_param("~resolution", 0.3)
+
+        self.bridge = CvBridge()
+
+        self.debug = True
+
+        self.sub_segments = rospy.Subscriber(
+            "~segments",
+            SegmentList,
+            self.cb_segments,
+            queue_size=1,
+        )
+
+        self.pub_path = rospy.Publisher(
+            "~trajectory",
+            Path,
+            queue_size=1,
+        )
+
+        self.pub_debug_img = rospy.Publisher(
+            "~debug/trajectory_image/compressed",
+            CompressedImage,
+            queue_size=1,
+        )
+
+        self.loginfo("TrajectoryPlannerNode initialized.")
+
+    # Main callback
+    def cb_segments(self, msg: SegmentList):
+        """
+        Receive projected ground segments and compute a centerline.
+        """
+        path_msg, centerline_pts = self.compute_centerline_path(msg)
+
+        # publish trajectory
+        self.pub_path.publish(path_msg)
+
+        # publish debug image
+        # if self.pub_debug_img.anybody_listening():
+        if self.debug:
+            debug_img = self.render_debug(msg, centerline_pts)
+            dbg = self.bridge.cv2_to_compressed_imgmsg(debug_img)
+            dbg.header = msg.header
+            self.pub_debug_img.publish(dbg)
+
+    # Centerline computation
+    def compute_centerline_path(self, seglist: SegmentList):
+        """
+        Convert lane boundaries into an ordered centerline path,
+        then produce a nav_msgs/Path for pure pursuit.
+        """
+
+        yellow_pts = []
+        white_pts = []
+
+        for seg in seglist.segments:
+            p1 = np.array([seg.points[0].x, seg.points[0].y])
+            p2 = np.array([seg.points[1].x, seg.points[1].y])
+
+            if seg.color == SegmentMsg.YELLOW:
+                yellow_pts += [p1, p2]
+            elif seg.color == SegmentMsg.WHITE:
+                white_pts += [p1, p2]
+
+        if len(yellow_pts) < 2 or len(white_pts) < 2:
+            return Path(), []
+
+        yellow_pts = np.array(yellow_pts)
+        white_pts = np.array(white_pts)
+
+        centerline = trajectory_generation.compute_centerline(
+            yellow_pts, white_pts, self.max_forward, self.n_samples
+        )
+
+        # Build Path message
+        path_msg = Path()
+        path_msg.header = seglist.header
+
+        for x, y in centerline:
+            pose = PoseStamped()
+            pose.header = path_msg.header
+            pose.pose.position.x = x
+            pose.pose.position.y = y
+            path_msg.poses.append(pose)
+
+        return path_msg, centerline
+
+    # Debug image
+    def render_debug(self, seglist: SegmentList, trajectory_points):
+        """
+        Reproduce the ground_projection-style debug image,
+        but overlay the computed trajectory centerline.
+        """
+
+        size = (600, 600)
+        background = draw_grid_image(
+            size=size,
+            grid_size=self.grid_size,
+            scale=self.scale,
+            s_padding=self.padding,
+            resolution=self.resolution,
+            start_x=0.0,
+        )
+
+        # reuse rendering params
+        resolution = (self.resolution, self.resolution)
+        grid_x = grid_y = self.grid_size
+        size_u, size_v = size
+
+        s = max(size_u, size_v) / self.scale
+        padding_px = int(self.padding * s)
+
+        half_x = int(grid_x / 2)
+        cell_x = int((size_u - 3 * padding_px) / grid_x)
+        cell_y = int((size_v - 3 * padding_px) / grid_y)
+
+        origin_u = 2 * padding_px + half_x * cell_x
+        origin_v = size_v - 2 * padding_px
+
+        img = background.copy()
+
+        # Draw segments (identical to ground_projection)
+        for seg in seglist.segments:
+            p1 = GroundPoint(seg.points[0].x, seg.points[0].y)
+            p2 = GroundPoint(seg.points[1].x, seg.points[1].y)
+
+            if seg.color == SegmentMsg.YELLOW:
+                color = (0, 255, 255)
+            elif seg.color == SegmentMsg.WHITE:
+                color = (255, 255, 255)
+            else:
+                color = (0, 0, 255)
+
+            u1, v1 = robot_to_image_frame(
+                p1, resolution, (origin_u, origin_v), (cell_x, cell_y)
+            )
+            u2, v2 = robot_to_image_frame(
+                p2, resolution, (origin_u, origin_v), (cell_x, cell_y)
+            )
+
+            cv2.line(img, (u1, v1), (u2, v2), color, max(1, int(6 * s)))
+
+        # Draw centerline trajectory
+        for x, y in trajectory_points:
+            gp = GroundPoint(x, y)
+            u, v = robot_to_image_frame(
+                gp, resolution, (origin_u, origin_v), (cell_x, cell_y)
+            )
+            cv2.circle(img, (u, v), int(8 * s), (0, 0, 255), -1)
+
+        return img
+
+
+if __name__ == "__main__":
+    node = TrajectoryPlannerNode("trajectory_planner_node")
+    rospy.spin()
