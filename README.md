@@ -1,47 +1,56 @@
-# Template: template-ros
+# Duckietown Fall 2025 - Final Project - Control
 
-This template provides a boilerplate repository
-for developing ROS-based software in Duckietown.
+We aim to do map-free lane following in this project. We plan to use a Pure Pursuit controller to achieve this.
 
-**NOTE:** If you want to develop software that does not use
-ROS, check out [this template](https://github.com/duckietown/template-basic).
+## Running this thing
 
+I assume you have a duckiebot setup, know how to start a virtual duckiebot, and know your way around the duckiematrix.
 
-## How to use it
+This repo follows the `template-ros` provided by Duckietown. If the requirements listed above are complete, you should be able to build the image specified by this repo and run things on your duckiebot (virtual or not).
 
-### 1. Fork this repository
+The steps assumes a virtual duckiebot called `vbot` running. Change this to your duckiebot name please.
 
-Use the fork button in the top-right corner of the github page to fork this template repository.
+Follow these steps:
+```bash
+git clone git@github.com:kumaradityag/fp-control
+```
 
+You will need 4 terminals to view everything needed. In all terminals:
+```bash
+cd fp-control
+```
 
-### 2. Create a new repository
+Then in terminal 1, launch the duckiematrix. There are two map options within this repo - `straight` and `loop`:
+```
+# Check if the duckiebot is active
+dts fleet discover
+dts dts matrix run --standalone --map ./assets/duckiematrix/map/straight/
+```
 
-Create a new repository on github.com while
-specifying the newly forked template repository as
-a template for your new repository.
+In terminal 2:
+```bash
+dts matrix attach vbot map_0/vehicle_0
+dts devel build -H vbot -f
+dts devel run -H vbot -L lane-following
+```
 
+In terminal 3:
+```bash
+dts gui vbot
+# Wait for the entrypoint - inside it run:
+rqt_image_view
+```
 
-### 3. Define dependencies
+In terminal 4:
+```bash
+ssh duckie@vbot.local
+# After logging into your duckiebot:
+docker exec -it ros-interface bash
+```
+Terminal 4 will allow you to check what is happening with ROS on your duckiebot. For example you'll be able to run commands like:
+```bash
+rostopic list
+```
 
-List the dependencies in the files `dependencies-apt.txt` and
-`dependencies-py3.txt` (apt packages and pip packages respectively).
-
-
-### 4. Place your code
-
-Place your code in the directory `/packages/` of
-your new repository.
-
-
-### 5. Setup launchers
-
-The directory `/launchers` can contain as many launchers (launching scripts)
-as you want. A default launcher called `default.sh` must always be present.
-
-If you create an executable script (i.e., a file with a valid shebang statement)
-a launcher will be created for it. For example, the script file 
-`/launchers/my-launcher.sh` will be available inside the Docker image as the binary
-`dt-launcher-my-launcher`.
-
-When launching a new container, you can simply provide `dt-launcher-my-launcher` as
-command.
+## Current Progress
+@kumaradityag: I have written a node to compute a basic trajectory and publish it to `/vbot/trajectory_planner_node/trajectory`. A debug image should also be published with the trajectory in <span style="color:red">red</span>. The debug image topic is `/vbot/trajectory_planner_node/debug/trajectory_image/compressed`. Use `rqt_image_view` to view it. The trajectory is *not* great now. Working on fixing it :)
