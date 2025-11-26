@@ -19,6 +19,8 @@ from dt_computer_vision.ground_projection.rendering import (
 
 from trajectory_planner.include import trajectory_generation
 
+from typing import List, Tuple
+
 
 class TrajectoryPlannerNode(DTROS):
     """
@@ -39,6 +41,7 @@ class TrajectoryPlannerNode(DTROS):
         self.max_forward = rospy.get_param("~max_forward", 1.0)
         self.n_samples = rospy.get_param("~n_samples", 25)
         self.lookahead_distance = rospy.get_param("~lookahead_distance", 0.35)
+        self.lane_width = rospy.get_param("~lane_width", 0.23)
 
         # debug grid params (match ground_projection)
         self.grid_size = rospy.get_param("~grid_size", 4)
@@ -90,7 +93,9 @@ class TrajectoryPlannerNode(DTROS):
             self.pub_debug_img.publish(dbg)
 
     # Centerline computation
-    def compute_centerline_path(self, seglist: SegmentList):
+    def compute_centerline_path(
+        self, seglist: SegmentList
+    ) -> Tuple[Path, List[Tuple[float, float]]]:
         """
         Convert lane boundaries into an ordered centerline path,
         then produce a nav_msgs/Path for pure pursuit.
@@ -99,14 +104,22 @@ class TrajectoryPlannerNode(DTROS):
         yellow_pts = []
         white_pts = []
 
-        for seg in seglist.segments:
+        remove_seglist_idx = []
+        for idx, seg in enumerate(seglist.segments):
             p1 = np.array([seg.points[0].x, seg.points[0].y])
             p2 = np.array([seg.points[1].x, seg.points[1].y])
 
             if seg.color == SegmentMsg.YELLOW:
                 yellow_pts += [p1, p2]
             elif seg.color == SegmentMsg.WHITE:
+                if (p1[1] > 0.0) or (p2[1] > 0.0):
+                    remove_seglist_idx.append(idx)  # ignore white lines on left side
+                    continue
                 white_pts += [p1, p2]
+
+        # Remove unwanted segments
+        for idx in sorted(remove_seglist_idx, reverse=True):
+            del seglist.segments[idx]
 
         if len(yellow_pts) < 2 or len(white_pts) < 2:
             return Path(), []
@@ -115,7 +128,11 @@ class TrajectoryPlannerNode(DTROS):
         white_pts = np.array(white_pts)
 
         centerline = trajectory_generation.compute_centerline(
-            yellow_pts, white_pts, self.max_forward, self.n_samples
+            yellow_pts,
+            white_pts,
+            self.max_forward,
+            self.n_samples,
+            self.lane_width,
         )
 
         # Build Path message
@@ -132,7 +149,9 @@ class TrajectoryPlannerNode(DTROS):
         return path_msg, centerline
 
     # Debug image
-    def render_debug(self, seglist: SegmentList, trajectory_points):
+    def render_debug(
+        self, seglist: SegmentList, trajectory_points: List[Tuple[float, float]]
+    ) -> np.ndarray:
         """
         Reproduce the ground_projection-style debug image,
         but overlay the computed trajectory centerline.

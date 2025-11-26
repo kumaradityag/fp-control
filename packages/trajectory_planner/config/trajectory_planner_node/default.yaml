@@ -1,6 +1,7 @@
-max_forward: 1.0
-n_samples: 25
+max_forward: 0.6
+n_samples: 30
 lookahead_distance: 0.15
+lane_width: 0.21
 
 # Debug Visualization Parameters
 grid_size: 4
