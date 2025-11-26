@@ -1,7 +1,14 @@
 import numpy as np
+from typing import List, Tuple
 
 
-def compute_centerline(yellow_pts, white_pts, max_forward, n_samples):
+def compute_centerline(
+    yellow_pts: np.ndarray,
+    white_pts: np.ndarray,
+    max_forward: float,
+    n_samples: int,
+    lane_width: float,
+) -> List[Tuple[float, float]]:
     x_samples = np.linspace(0.05, max_forward, n_samples)
 
     centerline = []
