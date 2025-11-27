@@ -12,9 +12,15 @@ from duckietown_msgs.msg import (
     StopLineReading,
 )
 
-from lane_controller.controller import LaneController
+from pure_pursuit_controller.controller import LaneController
+#  from lane_controller.controller import LaneController
 
 
+# FIXME: rename `LaneControllerNode` to `PurePursuitControllerNode` 
+# FIXME: allow import coming from `pure_pursuit_controller` instead of `LaneController`
+
+
+#  class PurePursuitControllerNode(DTROS):
 class LaneControllerNode(DTROS):
     """Computes control action.
     The node compute the commands in form of linear and angular velocities, by processing the estimate error in
@@ -51,6 +57,7 @@ class LaneControllerNode(DTROS):
     def __init__(self, node_name):
 
         # Initialize the DTROS parent class
+        #  super(PurePursuitControllerNode, self).__init__(
         super(LaneControllerNode, self).__init__(
             node_name=node_name, node_type=NodeType.PERCEPTION
         )
@@ -147,7 +154,8 @@ class LaneControllerNode(DTROS):
             queue_size=1,
         )
 
-        self.log("Initialized!")
+        self.log("Pure Pursuit Controller Node initialized!")
+        self.log(f"Parameters: {self.params}")
 
     def cbObstacleStopLineReading(self, msg):
         """
@@ -299,6 +307,7 @@ class LaneControllerNode(DTROS):
 
 if __name__ == "__main__":
     # Initialize the node
+    #  pure_pursuit_controller_node = PurePursuitControllerNode(node_name="pure_pursuit_controller_node")
     lane_controller_node = LaneControllerNode(node_name="lane_controller_node")
     # Keep it spinning
     rospy.spin()

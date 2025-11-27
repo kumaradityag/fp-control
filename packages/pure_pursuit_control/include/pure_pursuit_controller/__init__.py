@@ -1,10 +1,10 @@
 """
-    lane_controller
+    pure_pursuit_controller
     ---------------
 
-    The ``lane_controller`` library contains the implementations for control architectures for the motor commands. The
+    The ``pure_pursuit_controller`` library contains the implementations for control architectures for the motor commands. The
     basic and default one is :py:class:`LaneController`
 
-    .. autoclass:: lane_controller.LaneController
+    .. autoclass:: pure_pursuit_controller.LaneController
 
 """
