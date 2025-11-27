@@ -5,6 +5,8 @@ from typing import List, Tuple
 def compute_centerline(
     yellow_pts: np.ndarray,
     white_pts: np.ndarray,
+    yellow_normals: np.ndarray,
+    white_normals: np.ndarray,
     max_forward: float,
     n_samples: int,
     lane_width: float,
