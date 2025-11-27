@@ -12,6 +12,15 @@ The steps assumes a virtual duckiebot called `vbot` running. Change this to your
 
 Follow these steps:
 ```bash
+# create the virtual bot
+dts duckiebot virtual create --type duckiebot --configuration DB21J vbot
+dts duckiebot virtual start vbot
+
+# update
+dts update
+dts destktop update
+dts duckiebot update vbot
+
 git clone git@github.com:kumaradityag/fp-control
 ```
 
@@ -52,6 +61,16 @@ Terminal 4 will allow you to check what is happening with ROS on your duckiebot.
 rostopic list
 ```
 
+## Troubleshooting
+
+**I can't see anything when I do `rqt_image_view`**
+
+- go to `<robotname>.local` => Login => Portainer
+- restart robot with `dts duckiebot virtual restart vbot`
+
+
+
 ## Current Progress
 @kumaradityag: I have written a node to compute a basic trajectory and publish it to `/vbot/trajectory_planner_node/trajectory`. A debug image should also be published with the trajectory in <span style="color:red">red</span>. The debug image topic is `/vbot/trajectory_planner_node/debug/trajectory_image/compressed`. Use `rqt_image_view` to view it. The trajectory is *not* great now. Working on fixing it :)
+
 @yukikongju: I have started writting the pure pursuit package in the branch feature/pure_pursuit. Pure Pursuit is not implemented yet, but working on it:)
