@@ -14,13 +14,15 @@ from duckietown_msgs.msg import (
 from nav_msgs.msg import Path
 
 
-from lane_controller.controller import LaneController
+from pure_pursuit_control.include.pure_pursuit_controller.controller import (
+    LaneController,
+)
 
 # FIXME: rename `LaneControllerNode` to `PurePursuitControllerNode`
 # FIXME: import from `pure_pursuit_controller` instead of `lane_controller`
 
 
-class LaneControllerNode(DTROS):
+class PurePursuitControllerNode(DTROS):
     """Computes control action.
     The node compute the commands in form of linear and angular velocities, by processing the estimate error in
     lateral deviationa and heading.
@@ -61,14 +63,17 @@ class LaneControllerNode(DTROS):
     def __init__(self, node_name):
 
         # Initialize the DTROS parent class
-        super(LaneControllerNode, self).__init__(
+        super(PurePursuitControllerNode, self).__init__(
             node_name=node_name, node_type=NodeType.PERCEPTION
         )
 
         # Add the node parameters to the parameters dictionary
         self.params = dict()
         self.params["~lookahead_distance"] = DTParam(
-            "~lookahead_distance", param_type=ParamType.FLOAT, min_value=0.0, max_value=1.0
+            "~lookahead_distance",
+            param_type=ParamType.FLOAT,
+            min_value=0.0,
+            max_value=1.0,
         )
         self.params["~max_forward"] = DTParam(
             "~max_forward", param_type=ParamType.FLOAT, min_value=0.0, max_value=1.0
@@ -171,14 +176,18 @@ class LaneControllerNode(DTROS):
         self.log("Pure Pursuit Controller Node Initialized!")
         print("Pure Pursuit Controller Node Initialized!")
 
-    def cbTrajectory(self, path_msg):
+    """
+    @kumaradityag: the trajectory arg in r
+    ospy.Subscriber("~trajectory", Path, self.cbTrajectory, "trajectory", queue_size=1)
+    adds a second argument 'trajectory' to the callback function cbTrajectory
+    """
+
+    def cbTrajectory(self, path_msg, callback_source):
         self.trajectory = path_msg.poses
         self.computeControl()
 
-    def computeControlAction(self): # TODO: alternative of getControlAction() PID
+    def computeControlAction(self):  # TODO: alternative of getControlAction() PID
         pass
-
-
 
     def cbObstacleStopLineReading(self, msg):
         """
@@ -330,6 +339,8 @@ class LaneControllerNode(DTROS):
 
 if __name__ == "__main__":
     # Initialize the node
-    lane_controller_node = LaneControllerNode(node_name="lane_controller_node")
+    pure_pursuit_controller_node = PurePursuitControllerNode(
+        node_name="pure_pursuit_controller_node"
+    )
     # Keep it spinning
     rospy.spin()
