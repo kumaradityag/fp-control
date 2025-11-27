@@ -172,6 +172,36 @@ class GroundProjectionNode(DTROS):
         p_ground = self._pixel_to_ground(p)
         return PointMsg(x=p_ground.x, y=p_ground.y)
 
+    def project_normal(
+        self, midpoint: ResolutionIndependentImagePoint, normal_img: np.ndarray
+    ) -> np.ndarray:
+        p_ground = self._pixel_to_ground(midpoint)
+
+        offset = 0.01
+        sx = midpoint.x + normal_img[0] * offset
+        sy = midpoint.y + normal_img[1] * offset
+
+        # clamp to valid range
+        sx = max(0.0, min(1.0, sx))
+        sy = max(0.0, min(1.0, sy))
+
+        shifted = ResolutionIndependentImagePoint(x=sx, y=sy)
+
+        shifted_ground = self._pixel_to_ground(shifted)
+
+        n_ground = np.array(
+            [
+                shifted_ground.x - p_ground.x,
+                shifted_ground.y - p_ground.y,
+            ]
+        )
+
+        norm = np.linalg.norm(n_ground)
+        if norm > 0:
+            n_ground /= norm
+
+        return n_ground
+
     def lineseglist_cb(self, seglist_msg: SegmentList):
         """
         Projects a list of line segments on the ground reference frame point by point by
@@ -198,6 +228,25 @@ class GroundProjectionNode(DTROS):
                 projected_segment.points[1] = self.pixel_msg_to_ground_msg(
                     received_segment.pixels_normalized[1]
                 )
+
+                # Project normal:
+                p0 = received_segment.pixels_normalized[0]
+                p1 = received_segment.pixels_normalized[1]
+
+                midpoint = ResolutionIndependentImagePoint(
+                    x=(p0.x + p1.x) / 2.0,
+                    y=(p0.y + p1.y) / 2.0,
+                )
+
+                normal_img = np.array(
+                    [received_segment.normal.x, received_segment.normal.y]
+                )
+
+                n_ground = self.project_normal(midpoint, normal_img)
+
+                projected_segment.normal.x = float(n_ground[0])
+                projected_segment.normal.y = float(n_ground[1])
+
                 projected_segment.color = received_segment.color
                 seglist_out.segments.append(projected_segment)
 
