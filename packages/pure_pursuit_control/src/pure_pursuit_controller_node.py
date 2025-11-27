@@ -11,8 +11,13 @@ from duckietown_msgs.msg import (
     FSMState,
     StopLineReading,
 )
+from nav_msgs.msg import Path
+
 
 from lane_controller.controller import LaneController
+
+# FIXME: rename `LaneControllerNode` to `PurePursuitControllerNode`
+# FIXME: import from `pure_pursuit_controller` instead of `lane_controller`
 
 
 class LaneControllerNode(DTROS):
@@ -23,6 +28,9 @@ class LaneControllerNode(DTROS):
     Args:
         node_name (:obj:`str`): a unique, descriptive name for the node that ROS will use
     Configuration:
+        ~lookahead_distance
+        ~max_forward
+
         ~v_bar (:obj:`float`): Nominal velocity in m/s
         ~k_d (:obj:`float`): Proportional term for lateral deviation
         ~k_theta (:obj:`float`): Proportional term for heading deviation
@@ -41,6 +49,8 @@ class LaneControllerNode(DTROS):
     Publisher:
         ~car_cmd (:obj:`Twist2DStamped`): The computed control action
     Subscribers:
+        ~trajectory
+
         ~lane_pose (:obj:`LanePose`): The lane pose estimate from the lane filter
         ~intersection_navigation_pose (:obj:`LanePose`): The lane pose estimate from intersection navigation
         ~wheels_cmd_executed (:obj:`WheelsCmdStamped`): Confirmation that the control action was executed
@@ -56,8 +66,14 @@ class LaneControllerNode(DTROS):
         )
 
         # Add the node parameters to the parameters dictionary
-        # TODO: MAKE TO WORK WITH NEW DTROS PARAMETERS
         self.params = dict()
+        self.params["~lookahead_distance"] = DTParam(
+            "~lookahead_distance", param_type=ParamType.FLOAT, min_value=0.0, max_value=1.0
+        )
+        self.params["~max_forward"] = DTParam(
+            "~max_forward", param_type=ParamType.FLOAT, min_value=0.0, max_value=1.0
+        )
+
         self.params["~v_bar"] = DTParam(
             "~v_bar", param_type=ParamType.FLOAT, min_value=0.0, max_value=5.0
         )
@@ -124,6 +140,11 @@ class LaneControllerNode(DTROS):
         )
 
         # Construct subscribers
+        # FIXME
+        self.trajectory = rospy.Subscriber(
+            "~trajectory", Path, self.cbTrajectory, "trajectory", queue_size=1
+        )
+
         self.sub_lane_reading = rospy.Subscriber(
             "~lane_pose", LanePose, self.cbAllPoses, "lane_filter", queue_size=1
         )
@@ -147,7 +168,17 @@ class LaneControllerNode(DTROS):
             queue_size=1,
         )
 
-        self.log("Initialized!")
+        self.log("Pure Pursuit Controller Node Initialized!")
+        print("Pure Pursuit Controller Node Initialized!")
+
+    def cbTrajectory(self, path_msg):
+        self.trajectory = path_msg.poses
+        self.computeControl()
+
+    def computeControlAction(self): # TODO: alternative of getControlAction() PID
+        pass
+
+
 
     def cbObstacleStopLineReading(self, msg):
         """
