@@ -154,7 +154,7 @@ class TrajectoryPlannerNode(DTROS):
     ) -> np.ndarray:
         """
         Reproduce the ground_projection-style debug image,
-        but overlay the computed trajectory centerline.
+        but overlay the computed trajectory centerline AND segment normals.
         """
 
         size = (600, 600)
@@ -167,7 +167,6 @@ class TrajectoryPlannerNode(DTROS):
             start_x=0.0,
         )
 
-        # reuse rendering params
         resolution = (self.resolution, self.resolution)
         grid_x = grid_y = self.grid_size
         size_u, size_v = size
@@ -184,11 +183,14 @@ class TrajectoryPlannerNode(DTROS):
 
         img = background.copy()
 
-        # Draw segments (identical to ground_projection)
+        # ----------------------------------------------------------------------
+        # Draw SEGMENTS and NORMALS
+        # ----------------------------------------------------------------------
         for seg in seglist.segments:
             p1 = GroundPoint(seg.points[0].x, seg.points[0].y)
             p2 = GroundPoint(seg.points[1].x, seg.points[1].y)
 
+            # pick color for the segment
             if seg.color == SegmentMsg.YELLOW:
                 color = (0, 255, 255)
             elif seg.color == SegmentMsg.WHITE:
@@ -196,6 +198,7 @@ class TrajectoryPlannerNode(DTROS):
             else:
                 color = (0, 0, 255)
 
+            # project endpoints
             u1, v1 = robot_to_image_frame(
                 p1, resolution, (origin_u, origin_v), (cell_x, cell_y)
             )
@@ -203,9 +206,47 @@ class TrajectoryPlannerNode(DTROS):
                 p2, resolution, (origin_u, origin_v), (cell_x, cell_y)
             )
 
+            # Draw the segment line
             cv2.line(img, (u1, v1), (u2, v2), color, max(1, int(6 * s)))
 
-        # Draw centerline trajectory
+            # ------------------------------------------------------------------
+            # Draw NORMAL (in BLUE)
+            # ------------------------------------------------------------------
+            # Compute midpoint in ground frame
+            mx = 0.5 * (p1.x + p2.x)
+            my = 0.5 * (p1.y + p2.y)
+            midpoint = GroundPoint(mx, my)
+
+            # Convert midpoint to debug-image pixel frame
+            um, vm = robot_to_image_frame(
+                midpoint, resolution, (origin_u, origin_v), (cell_x, cell_y)
+            )
+
+            # Ground-frame normal vector (already computed in earlier node)
+            nx = seg.normal.x
+            ny = seg.normal.y
+
+            # Scale the vector for visibility on the debug image
+            normal_scale = 0.10  # meters → length of arrow
+            endp = GroundPoint(mx + nx * normal_scale, my + ny * normal_scale)
+
+            ue, ve = robot_to_image_frame(
+                endp, resolution, (origin_u, origin_v), (cell_x, cell_y)
+            )
+
+            # Draw a blue arrow
+            cv2.arrowedLine(
+                img,
+                (um, vm),
+                (ue, ve),
+                (255, 0, 0),  # BLUE
+                thickness=max(1, int(4 * s)),
+                tipLength=0.3,
+            )
+
+        # ----------------------------------------------------------------------
+        # Draw CENTERLINE TRAJECTORY (red dots)
+        # ----------------------------------------------------------------------
         for x, y in trajectory_points:
             gp = GroundPoint(x, y)
             u, v = robot_to_image_frame(
