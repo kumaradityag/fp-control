@@ -56,6 +56,8 @@
     </include>
 
     <!-- Pure Pursuit Controller -->
+    <remap from="pure_pursuit_controller_node/trajectory"
+           to="trajectory_planner_node/trajectory" />
     <remap from="pure_pursuit_controller_node/lane_pose"
            to="lane_filter_node/lane_pose"/>
     <remap from="pure_pursuit_controller_node/wheels_cmd"
@@ -64,6 +66,8 @@
            to="car_cmd_switch_node/cmd" />
     <remap from="pure_pursuit_controller_node/stop_line_reading"
            to="stop_line_filter_node/stop_line_reading" />
+    <remap from="pure_pursuit_controller_node/wheels_cmd"
+           to="wheels_driver_node/wheels_cmd"/>
     <include file="$(find pure_pursuit_control)/launch/pure_pursuit_controller_node.launch">
         <arg name="veh" value="$(arg veh)"/>
         <arg name="param_file_name" value="$(arg param_file_name)"/>

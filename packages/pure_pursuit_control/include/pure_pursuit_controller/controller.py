@@ -43,7 +43,9 @@ class LaneController:
         """
         self.parameters = parameters
 
-    def compute_control_action(self, d_err, phi_err, dt, wheels_cmd_exec, stop_line_distance):
+    def compute_control_action(
+        self, d_err, phi_err, dt, wheels_cmd_exec, stop_line_distance
+    ):
         """Main function, computes the control action given the current error signals.
 
         Given an estimate of the error, computes a control action (tuple of linear and angular velocity). This is done
@@ -65,7 +67,10 @@ class LaneController:
             self.integrate_errors(d_err, phi_err, dt)
 
         self.d_I = self.adjust_integral(
-            d_err, self.d_I, self.parameters["~integral_bounds"]["d"], self.parameters["~d_resolution"]
+            d_err,
+            self.d_I,
+            self.parameters["~integral_bounds"]["d"],
+            self.parameters["~d_resolution"],
         )
         self.phi_I = self.adjust_integral(
             phi_err,
@@ -109,10 +114,15 @@ class LaneController:
                 self.parameters["~stop_line_slowdown"]["end"],
             )
             # d1 -> v_bar, d2 -> v_bar/2
-            c = (0.5 * (d1 - stop_line_distance) + (stop_line_distance - d2)) / (d1 - d2)
+            c = (0.5 * (d1 - stop_line_distance) + (stop_line_distance - d2)) / (
+                d1 - d2
+            )
             v_new = self.parameters["~v_bar"].value * c
             v = np.max(
-                [self.parameters["~v_bar"].value / 2.0, np.min([self.parameters["~v_bar"].value, v_new])]
+                [
+                    self.parameters["~v_bar"].value / 2.0,
+                    np.min([self.parameters["~v_bar"].value, v_new]),
+                ]
             )
             return v
 
