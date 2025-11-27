@@ -4,7 +4,11 @@ import os
 from typing import Optional, Union
 import numpy as np
 
-from dt_computer_vision.camera.types import Pixel, NormalizedImagePoint, ResolutionIndependentImagePoint
+from dt_computer_vision.camera.types import (
+    Pixel,
+    NormalizedImagePoint,
+    ResolutionIndependentImagePoint,
+)
 from dt_computer_vision.ground_projection import GroundPoint
 from dt_computer_vision.ground_projection.rendering import draw_grid_image, debug_image
 from dt_computer_vision.camera import CameraModel
@@ -19,7 +23,6 @@ from sensor_msgs.msg import CameraInfo, CompressedImage
 from geometry_msgs.msg import Point as PointMsg
 
 from duckietown.dtros import DTROS, NodeType
-
 
 
 class GroundProjectionNode(DTROS):
@@ -69,7 +72,6 @@ class GroundProjectionNode(DTROS):
         self._first_processing_done = False
         self.camera_info_received = False
 
-
         # subscribers
         self.sub_camera_info = rospy.Subscriber(
             "~camera_info", CameraInfo, self.cb_camera_info, queue_size=1
@@ -103,7 +105,6 @@ class GroundProjectionNode(DTROS):
         self.bridge = CvBridge()
 
         self.debug_img_bg = None
-
 
     def cb_camera_info(self, msg: CameraInfo):
         """
@@ -185,7 +186,7 @@ class GroundProjectionNode(DTROS):
             # the list of segments on the ground that we will publish
             seglist_out = SegmentList()
             seglist_out.header = seglist_msg.header
-            colored_segments = {(255, 255, 255): [], (0,255,255): [], (255,0,0):[]}
+            colored_segments = {(255, 255, 255): [], (0, 255, 255): [], (255, 0, 0): []}
 
             for received_segment in seglist_msg.segments:
                 received_segment: SegmentMsg
@@ -201,12 +202,14 @@ class GroundProjectionNode(DTROS):
                 seglist_out.segments.append(projected_segment)
 
                 if projected_segment.color == 0:
-                    color_vect = (255,255,255)
+                    color_vect = (255, 255, 255)
                 elif projected_segment.color == 1:
                     color_vect = (0, 255, 255)
                 else:
                     color_vect = (255, 0, 0)
-                colored_segments[color_vect].append((projected_segment.points[0], projected_segment.points[1]))
+                colored_segments[color_vect].append(
+                    (projected_segment.points[0], projected_segment.points[1])
+                )
             self.pub_lineseglist.publish(seglist_out)
 
             if not self._first_processing_done:
@@ -215,7 +218,9 @@ class GroundProjectionNode(DTROS):
 
             if self.pub_debug_road_view_img.get_num_connections() > 0:
                 debug_image_msg = self.bridge.cv2_to_compressed_imgmsg(
-                    debug_image(colored_segments,(300, 300), grid_size=6, s_segment_thickness=5)
+                    debug_image(
+                        colored_segments, (300, 300), grid_size=6, s_segment_thickness=5
+                    )
                 )
                 debug_image_msg.header = seglist_out.header
                 self.pub_debug_road_view_img.publish(debug_image_msg)
