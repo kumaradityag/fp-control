@@ -184,7 +184,7 @@ class PurePursuitControllerNode(DTROS):
 
     def cbTrajectory(self, path_msg, callback_source):
         self.trajectory = path_msg.poses
-        self.computeControl()
+        self.computeControlAction()
 
     def computeControlAction(self):  # TODO: alternative of getControlAction() PID
         pass
