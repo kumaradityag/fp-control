@@ -1,7 +1,9 @@
 #lane_control/lane_controller_node
 
 lookahead_distance: 0.15
+max_lookahead_distance: 1.0
 max_forward: 0.6
+kp_steering: 3
 
 v_bar: 0.19
 k_d: -2.0

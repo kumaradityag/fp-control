@@ -18,6 +18,13 @@ from pure_pursuit_control.include.pure_pursuit_controller.controller import (
     LaneController,
 )
 
+from pure_pursuit_control.include.pure_pursuit_controller.goal import (
+    find_goal_point,
+)
+
+# TODO: determine whether to run computeControlAction() at frequent intervals 
+# or every time trajectory is updated
+
 
 class PurePursuitControllerNode(DTROS):
     """Computes control action.
@@ -72,8 +79,11 @@ class PurePursuitControllerNode(DTROS):
             min_value=0.0,
             max_value=1.0,
         )
-        self.params["~max_forward"] = DTParam(
-            "~max_forward", param_type=ParamType.FLOAT, min_value=0.0, max_value=1.0
+        #  self.params["~max_forward"] = DTParam(
+        #      "~max_forward", param_type=ParamType.FLOAT, min_value=0.0, max_value=1.0
+        #  )
+        self.params["~kp_steering"] = DTParam(
+            "~kp_steering", param_type=ParamType.FLOAT, min_value=0.0, max_value=5.0
         )
 
         self.params["~v_bar"] = DTParam(
@@ -121,12 +131,21 @@ class PurePursuitControllerNode(DTROS):
         # self.updateParameters() # TODO: This needs be replaced by the new DTROS callback when it is implemented
 
         # Initialize variables
-        self.fsm_state = None
-        self.wheels_cmd_executed = WheelsCmdStamped()
-        self.pose_msg = LanePose()
-        self.pose_initialized = False
-        self.pose_msg_dict = dict()
-        self.last_s = None
+        self.trajectory = []
+        self.path_points = []
+        self.last_found_index = 0
+        self.current_pos = [0.0, 0.0]
+        self.current_heading = 0.0
+        self.num_frames = 400 # FIXME needed?
+
+
+        #  self.fsm_state = None
+        #  self.wheels_cmd_executed = WheelsCmdStamped()
+        #  self.pose_msg = LanePose()
+        #  self.pose_initialized = False
+        #  self.pose_msg_dict = dict()
+        #  self.last_s = None
+
         self.stop_line_distance = None
         self.stop_line_detected = False
         self.at_stop_line = False
@@ -142,7 +161,7 @@ class PurePursuitControllerNode(DTROS):
         )
 
         # Construct subscribers
-        self.trajectory = rospy.Subscriber(
+        self.sub_trajectory = rospy.Subscriber(
             "~trajectory", Path, self.cbTrajectory, "trajectory", queue_size=1
         )
 
@@ -180,10 +199,60 @@ class PurePursuitControllerNode(DTROS):
 
     def cbTrajectory(self, path_msg, callback_source):
         self.trajectory = path_msg.poses
+        self.path_points = [(msg.pose.position.x, msg.pose.position.y) for msg in path_msg]
+        self.last_found_index = 0
+
+        self.log(f"pure pursuit trajectory points: {len(self.path_points)}")
+
+        # FIXME recompute path at timer instead?
         self.computeControlAction()
 
     def computeControlAction(self):  # TODO: alternative of getControlAction() PID
-        pass
+        """
+        Compute Control using line-circle intersection algorithm as descbribed in
+        https://wiki.purduesigbots.com/software/control-algorithms/basic-pure-pursuit
+        """
+        if self.at_stop_line or self.at_obstacle_stop_line:
+            self.stopControl()
+            return
+
+        lookahead_distance = self.params["~lookahead_distance"].value
+        v_bar = self.params["~v_bar"].value
+        kp = self.params["~kp_steering"]
+
+        # 1. Find goal points
+        goal_point = find_goal_point(self.path_points, self.current_pos, lookahead_distance, self.last_found_index)
+
+        # 2. Compute control - compute turn error
+        dx, dy = goal_point[0] - self.current_pos[0], goal_point[1] - self.current_pos[1]
+        absTargetAngle = math.atan2(dy, dx)
+
+        turnError = absTargetAngle - self.currentHeading
+        turnError = (turnError + math.pi) % (2 * math.pi) - math.pi
+        omega = Kp * turnError
+
+        #  TODO: reduce speed if stopline is near (or if corner)
+        if self.stop_line_detected and (self.stop_line_distance is not None):
+            slowdown_start = self.params["~stop_line_slowdown"].value # FIXME: change to be within 2xlookahead distance?
+            if self.stop_line_distance < slowdown_start:
+                scale = max(0.0, self.stop_line_distance / slowdown_start)
+                v_bar = scale * v_bar 
+
+        # 3. Update 
+        car_control_msg = Twist2DStamped()
+        #  car_control_msg.header = pose_msg.header # FIXME
+        car_control_msg.v = v
+        car_control_msg.omega = omega
+        self.pub_car_cmd.publish(car_control_msg)
+
+
+    def stopControl(self):
+        car_control_msg = Twist2DStamped()
+        car_control_msg.header.stamp = rospy.Time.now()
+        car_control_msg.v = 0.0
+        car_control_msg.omega = 0.0
+        self.pub_car_cmd.publish(car_control_msg)
+
 
     def cbObstacleStopLineReading(self, msg):
         """
