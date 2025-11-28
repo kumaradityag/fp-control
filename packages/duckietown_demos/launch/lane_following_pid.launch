@@ -47,19 +47,17 @@
        <arg name="param_file_name" value="$(arg param_file_name)"/>
     </include>
 
-    <!-- Lane Filter -->
+    <!-- Lane Filter
     <remap from="lane_filter_node/segment_list"
            to="ground_projection_node/lineseglist_out"/>
     <include file="$(find lane_filter)/launch/lane_filter_node.launch">
         <arg name="veh" value="$(arg veh)"/>
         <arg name="param_file_name" value="$(arg param_file_name)"/>
-    </include>
+    </include> -->
 
     <!-- Pure Pursuit Controller -->
     <remap from="pure_pursuit_controller_node/trajectory"
            to="trajectory_planner_node/trajectory" />
-    <remap from="pure_pursuit_controller_node/lane_pose"
-           to="lane_filter_node/lane_pose"/>
     <remap from="pure_pursuit_controller_node/wheels_cmd"
            to="wheels_driver_node/wheels_cmd"/>
     <remap from="pure_pursuit_controller_node/car_cmd"
