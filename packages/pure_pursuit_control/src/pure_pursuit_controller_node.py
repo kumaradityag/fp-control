@@ -18,9 +18,6 @@ from pure_pursuit_control.include.pure_pursuit_controller.controller import (
     LaneController,
 )
 
-# FIXME: rename `LaneControllerNode` to `PurePursuitControllerNode`
-# FIXME: import from `pure_pursuit_controller` instead of `lane_controller`
-
 
 class PurePursuitControllerNode(DTROS):
     """Computes control action.
@@ -145,7 +142,6 @@ class PurePursuitControllerNode(DTROS):
         )
 
         # Construct subscribers
-        # FIXME
         self.trajectory = rospy.Subscriber(
             "~trajectory", Path, self.cbTrajectory, "trajectory", queue_size=1
         )
