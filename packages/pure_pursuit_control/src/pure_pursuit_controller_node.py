@@ -12,6 +12,7 @@ from duckietown_msgs.msg import (
     StopLineReading,
 )
 from nav_msgs.msg import Path
+import math
 
 
 from pure_pursuit_control.include.pure_pursuit_controller.controller import (
@@ -22,47 +23,11 @@ from pure_pursuit_control.include.pure_pursuit_controller.goal import (
     find_goal_point,
 )
 
-# TODO: determine whether to run computeControlAction() at frequent intervals 
+# TODO: determine whether to run computeControlAction() at frequent intervals
 # or every time trajectory is updated
 
 
 class PurePursuitControllerNode(DTROS):
-    """Computes control action.
-    The node compute the commands in form of linear and angular velocities, by processing the estimate error in
-    lateral deviationa and heading.
-    The configuration parameters can be changed dynamically while the node is running via ``rosparam set`` commands.
-    Args:
-        node_name (:obj:`str`): a unique, descriptive name for the node that ROS will use
-    Configuration:
-        ~lookahead_distance
-        ~max_forward
-
-        ~v_bar (:obj:`float`): Nominal velocity in m/s
-        ~k_d (:obj:`float`): Proportional term for lateral deviation
-        ~k_theta (:obj:`float`): Proportional term for heading deviation
-        ~k_Id (:obj:`float`): integral term for lateral deviation
-        ~k_Iphi (:obj:`float`): integral term for lateral deviation
-        ~d_thres (:obj:`float`): Maximum value for lateral error
-        ~theta_thres (:obj:`float`): Maximum value for heading error
-        ~d_offset (:obj:`float`): Goal offset from center of the lane
-        ~integral_bounds (:obj:`dict`): Bounds for integral term
-        ~d_resolution (:obj:`float`): Resolution of lateral position estimate
-        ~phi_resolution (:obj:`float`): Resolution of heading estimate
-        ~omega_ff (:obj:`float`): Feedforward part of controller
-        ~verbose (:obj:`bool`): Verbosity level (0,1,2)
-        ~stop_line_slowdown (:obj:`dict`): Start and end distances for slowdown at stop lines
-
-    Publisher:
-        ~car_cmd (:obj:`Twist2DStamped`): The computed control action
-    Subscribers:
-        ~trajectory
-
-        ~lane_pose (:obj:`LanePose`): The lane pose estimate from the lane filter
-        ~intersection_navigation_pose (:obj:`LanePose`): The lane pose estimate from intersection navigation
-        ~wheels_cmd_executed (:obj:`WheelsCmdStamped`): Confirmation that the control action was executed
-        ~stop_line_reading (:obj:`StopLineReading`): Distance from stopline, to reduce speed
-        ~obstacle_distance_reading (:obj:`stop_line_reading`): Distancefrom obstacle virtual stopline, to reduce speed
-    """
 
     def __init__(self, node_name):
 
@@ -79,49 +44,12 @@ class PurePursuitControllerNode(DTROS):
             min_value=0.0,
             max_value=1.0,
         )
-        #  self.params["~max_forward"] = DTParam(
-        #      "~max_forward", param_type=ParamType.FLOAT, min_value=0.0, max_value=1.0
-        #  )
         self.params["~kp_steering"] = DTParam(
             "~kp_steering", param_type=ParamType.FLOAT, min_value=0.0, max_value=5.0
         )
-
         self.params["~v_bar"] = DTParam(
             "~v_bar", param_type=ParamType.FLOAT, min_value=0.0, max_value=5.0
         )
-        self.params["~k_d"] = DTParam(
-            "~k_d", param_type=ParamType.FLOAT, min_value=-100.0, max_value=100.0
-        )
-        self.params["~k_theta"] = DTParam(
-            "~k_theta", param_type=ParamType.FLOAT, min_value=-100.0, max_value=100.0
-        )
-        self.params["~k_Id"] = DTParam(
-            "~k_Id", param_type=ParamType.FLOAT, min_value=-100.0, max_value=100.0
-        )
-        self.params["~k_Iphi"] = DTParam(
-            "~k_Iphi", param_type=ParamType.FLOAT, min_value=-100.0, max_value=100.0
-        )
-        # self.params["~theta_thres"] = rospy.get_param("~theta_thres", None)
-        # Breaking up the self.params["~theta_thres"] parameter for more finer tuning of phi
-        self.params["~theta_thres_min"] = DTParam(
-            "~theta_thres_min",
-            param_type=ParamType.FLOAT,
-            min_value=-100.0,
-            max_value=100.0,
-        )  # SUGGESTION mandatorizing the use of DTParam inplace of rospy.get_param for parameters in the entire dt-core repository as it allows active tuning while Robot is in action.
-        self.params["~theta_thres_max"] = DTParam(
-            "~theta_thres_max",
-            param_type=ParamType.FLOAT,
-            min_value=-100.0,
-            max_value=100.0,
-        )
-        self.params["~d_thres"] = rospy.get_param("~d_thres", None)
-        self.params["~d_offset"] = rospy.get_param("~d_offset", None)
-        self.params["~integral_bounds"] = rospy.get_param("~integral_bounds", None)
-        self.params["~d_resolution"] = rospy.get_param("~d_resolution", None)
-        self.params["~phi_resolution"] = rospy.get_param("~phi_resolution", None)
-        self.params["~omega_ff"] = rospy.get_param("~omega_ff", None)
-        self.params["~verbose"] = rospy.get_param("~verbose", None)
         self.params["~stop_line_slowdown"] = rospy.get_param(
             "~stop_line_slowdown", None
         )
@@ -136,15 +64,7 @@ class PurePursuitControllerNode(DTROS):
         self.last_found_index = 0
         self.current_pos = [0.0, 0.0]
         self.current_heading = 0.0
-        self.num_frames = 400 # FIXME needed?
-
-
-        #  self.fsm_state = None
-        #  self.wheels_cmd_executed = WheelsCmdStamped()
-        #  self.pose_msg = LanePose()
-        #  self.pose_initialized = False
-        #  self.pose_msg_dict = dict()
-        #  self.last_s = None
+        self.num_frames = 400  # FIXME needed?
 
         self.stop_line_distance = None
         self.stop_line_detected = False
@@ -153,8 +73,6 @@ class PurePursuitControllerNode(DTROS):
         self.obstacle_stop_line_detected = False
         self.at_obstacle_stop_line = False
 
-        self.current_pose_source = "lane_filter"
-
         # Construct publishers
         self.pub_car_cmd = rospy.Publisher(
             "~car_cmd", Twist2DStamped, queue_size=1, dt_topic_type=TopicType.CONTROL
@@ -162,18 +80,7 @@ class PurePursuitControllerNode(DTROS):
 
         # Construct subscribers
         self.sub_trajectory = rospy.Subscriber(
-            "~trajectory", Path, self.cbTrajectory, "trajectory", queue_size=1
-        )
-
-        self.sub_lane_reading = rospy.Subscriber(
-            "~lane_pose", LanePose, self.cbAllPoses, "lane_filter", queue_size=1
-        )
-        self.sub_intersection_navigation_pose = rospy.Subscriber(
-            "~intersection_navigation_pose",
-            LanePose,
-            self.cbAllPoses,
-            "intersection_navigation",
-            queue_size=1,
+            "~trajectory", Path, self.cbTrajectory, queue_size=1
         )
         self.sub_wheels_cmd_executed = rospy.Subscriber(
             "~wheels_cmd", WheelsCmdStamped, self.cbWheelsCmdExecuted, queue_size=1
@@ -189,25 +96,20 @@ class PurePursuitControllerNode(DTROS):
         )
 
         self.log("Pure Pursuit Controller Node Initialized!")
-        print("Pure Pursuit Controller Node Initialized!")
 
-    """
-    @kumaradityag: the trajectory arg in r
-    ospy.Subscriber("~trajectory", Path, self.cbTrajectory, "trajectory", queue_size=1)
-    adds a second argument 'trajectory' to the callback function cbTrajectory
-    """
-
-    def cbTrajectory(self, path_msg, callback_source):
+    def cbTrajectory(self, path_msg):
         self.trajectory = path_msg.poses
-        self.path_points = [(msg.pose.position.x, msg.pose.position.y) for msg in path_msg]
+        self.path_points = [
+            (msg.pose.position.x, msg.pose.position.y) for msg in path_msg.poses
+        ]
         self.last_found_index = 0
 
         self.log(f"pure pursuit trajectory points: {len(self.path_points)}")
 
         # FIXME recompute path at timer instead?
-        self.computeControlAction()
+        self.computeControlAction(path_msg)
 
-    def computeControlAction(self):  # TODO: alternative of getControlAction() PID
+    def computeControlAction(self, path_msg):
         """
         Compute Control using line-circle intersection algorithm as descbribed in
         https://wiki.purduesigbots.com/software/control-algorithms/basic-pure-pursuit
@@ -218,33 +120,42 @@ class PurePursuitControllerNode(DTROS):
 
         lookahead_distance = self.params["~lookahead_distance"].value
         v_bar = self.params["~v_bar"].value
-        kp = self.params["~kp_steering"]
+        kp = self.params["~kp_steering"].value
 
         # 1. Find goal points
-        goal_point = find_goal_point(self.path_points, self.current_pos, lookahead_distance, self.last_found_index)
+        goal_point, last_found_index = find_goal_point(
+            self.path_points,
+            self.current_pos,
+            lookahead_distance,
+            self.last_found_index,
+        )
 
         # 2. Compute control - compute turn error
-        dx, dy = goal_point[0] - self.current_pos[0], goal_point[1] - self.current_pos[1]
+        dx, dy = (
+            goal_point[0] - self.current_pos[0],
+            goal_point[1] - self.current_pos[1],
+        )
         absTargetAngle = math.atan2(dy, dx)
 
-        turnError = absTargetAngle - self.currentHeading
-        turnError = (turnError + math.pi) % (2 * math.pi) - math.pi
-        omega = Kp * turnError
+        turnError = absTargetAngle - self.current_heading
+        turnError = ((turnError + math.pi) % (2 * math.pi)) - math.pi
+        omega = kp * turnError
 
         #  TODO: reduce speed if stopline is near (or if corner)
         if self.stop_line_detected and (self.stop_line_distance is not None):
-            slowdown_start = self.params["~stop_line_slowdown"].value # FIXME: change to be within 2xlookahead distance?
+            slowdown_start = self.params[
+                "~stop_line_slowdown"
+            ].value  # FIXME: change to be within 2xlookahead distance?
             if self.stop_line_distance < slowdown_start:
                 scale = max(0.0, self.stop_line_distance / slowdown_start)
-                v_bar = scale * v_bar 
+                v_bar = scale * v_bar
 
-        # 3. Update 
+        # 3. Update
         car_control_msg = Twist2DStamped()
-        #  car_control_msg.header = pose_msg.header # FIXME
-        car_control_msg.v = v
+        car_control_msg.header = path_msg.header
+        car_control_msg.v = v_bar
         car_control_msg.omega = omega
         self.pub_car_cmd.publish(car_control_msg)
-
 
     def stopControl(self):
         car_control_msg = Twist2DStamped()
@@ -252,7 +163,6 @@ class PurePursuitControllerNode(DTROS):
         car_control_msg.v = 0.0
         car_control_msg.omega = 0.0
         self.pub_car_cmd.publish(car_control_msg)
-
 
     def cbObstacleStopLineReading(self, msg):
         """
