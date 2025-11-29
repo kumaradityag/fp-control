@@ -23,9 +23,6 @@ from pure_pursuit_control.include.pure_pursuit_controller.goal import (
     find_goal_point,
 )
 
-# TODO: determine whether to run computeControlAction() at frequent intervals
-# or every time trajectory is updated
-
 
 class PurePursuitControllerNode(DTROS):
 
@@ -55,7 +52,7 @@ class PurePursuitControllerNode(DTROS):
         )
 
         # Need to create controller object before updating parameters, otherwise it will fail
-        self.controller = LaneController(self.params)
+        #  self.controller = LaneController(self.params)
         # self.updateParameters() # TODO: This needs be replaced by the new DTROS callback when it is implemented
 
         # Initialize variables
@@ -191,34 +188,34 @@ class PurePursuitControllerNode(DTROS):
         if not self.stop_line_detected:
             self.stop_line_distance = None
 
-    def cbMode(self, fsm_state_msg):
+    #  def cbMode(self, fsm_state_msg):
 
-        self.fsm_state = fsm_state_msg.state  # String of current FSM state
+    #      self.fsm_state = fsm_state_msg.state  # String of current FSM state
 
-        if self.fsm_state == "INTERSECTION_CONTROL":
-            self.current_pose_source = "intersection_navigation"
-        else:
-            self.current_pose_source = "lane_filter"
+    #      if self.fsm_state == "INTERSECTION_CONTROL":
+    #          self.current_pose_source = "intersection_navigation"
+    #      else:
+    #          self.current_pose_source = "lane_filter"
 
-        if self.params["~verbose"] == 2:
-            self.log("Pose source: %s" % self.current_pose_source)
+    #      if self.params["~verbose"] == 2:
+    #          self.log("Pose source: %s" % self.current_pose_source)
 
-    def cbAllPoses(self, input_pose_msg, pose_source):
-        """Callback receiving pose messages from multiple topics.
+    #  def cbAllPoses(self, input_pose_msg, pose_source):
+    #      """Callback receiving pose messages from multiple topics.
 
-        If the source of the message corresponds with the current wanted pose source, it computes a control command.
+    #      If the source of the message corresponds with the current wanted pose source, it computes a control command.
 
-        Args:
-            input_pose_msg (:obj:`LanePose`): Message containing information about the current lane pose.
-            pose_source (:obj:`String`): Source of the message, specified in the subscriber.
-        """
+    #      Args:
+    #          input_pose_msg (:obj:`LanePose`): Message containing information about the current lane pose.
+    #          pose_source (:obj:`String`): Source of the message, specified in the subscriber.
+    #      """
 
-        if pose_source == self.current_pose_source:
-            self.pose_msg_dict[pose_source] = input_pose_msg
+    #      if pose_source == self.current_pose_source:
+    #          self.pose_msg_dict[pose_source] = input_pose_msg
 
-            self.pose_msg = input_pose_msg
+    #          self.pose_msg = input_pose_msg
 
-            self.getControlAction(self.pose_msg)
+    #          self.getControlAction(self.pose_msg)
 
     def cbWheelsCmdExecuted(self, msg_wheels_cmd):
         """Callback that reports if the requested control action was executed.
@@ -236,80 +233,80 @@ class PurePursuitControllerNode(DTROS):
         """
         self.pub_car_cmd.publish(car_cmd_msg)
 
-    def getControlAction(self, pose_msg):
-        """Callback that receives a pose message and updates the related control command.
+    #  def getControlAction(self, pose_msg):
+    #      """Callback that receives a pose message and updates the related control command.
 
-        Using a controller object, computes the control action using the current pose estimate.
+    #      Using a controller object, computes the control action using the current pose estimate.
 
-        Args:
-            pose_msg (:obj:`LanePose`): Message containing information about the current lane pose.
-        """
-        current_s = rospy.Time.now().to_sec()
-        dt = None
-        if self.last_s is not None:
-            dt = current_s - self.last_s
+    #      Args:
+    #          pose_msg (:obj:`LanePose`): Message containing information about the current lane pose.
+    #      """
+    #      current_s = rospy.Time.now().to_sec()
+    #      dt = None
+    #      if self.last_s is not None:
+    #          dt = current_s - self.last_s
 
-        if self.at_stop_line or self.at_obstacle_stop_line:
-            v = 0
-            omega = 0
-        else:
+    #      if self.at_stop_line or self.at_obstacle_stop_line:
+    #          v = 0
+    #          omega = 0
+    #      else:
 
-            # Compute errors
-            d_err = pose_msg.d - self.params["~d_offset"]
-            phi_err = pose_msg.phi
+    #          # Compute errors
+    #          d_err = pose_msg.d - self.params["~d_offset"]
+    #          phi_err = pose_msg.phi
 
-            # We cap the error if it grows too large
-            if np.abs(d_err) > self.params["~d_thres"]:
-                d_err = np.sign(d_err) * self.params["~d_thres"]
+    #          # We cap the error if it grows too large
+    #          if np.abs(d_err) > self.params["~d_thres"]:
+    #              d_err = np.sign(d_err) * self.params["~d_thres"]
 
-            if (
-                phi_err > self.params["~theta_thres_max"].value
-                or phi_err < self.params["~theta_thres_min"].value
-            ):
-                phi_err = np.maximum(
-                    self.params["~theta_thres_min"].value,
-                    np.minimum(phi_err, self.params["~theta_thres_max"].value),
-                )
+    #          if (
+    #              phi_err > self.params["~theta_thres_max"].value
+    #              or phi_err < self.params["~theta_thres_min"].value
+    #          ):
+    #              phi_err = np.maximum(
+    #                  self.params["~theta_thres_min"].value,
+    #                  np.minimum(phi_err, self.params["~theta_thres_max"].value),
+    #              )
 
-            wheels_cmd_exec = [
-                self.wheels_cmd_executed.vel_left,
-                self.wheels_cmd_executed.vel_right,
-            ]
-            if self.obstacle_stop_line_detected:
-                v, omega = self.controller.compute_control_action(
-                    d_err,
-                    phi_err,
-                    dt,
-                    wheels_cmd_exec,
-                    self.obstacle_stop_line_distance,
-                )
-                # TODO: This is a temporarily fix to avoid vehicle image detection latency caused unable to stop in time.
-                v = v * 0.25
-                omega = omega * 0.25
+    #          wheels_cmd_exec = [
+    #              self.wheels_cmd_executed.vel_left,
+    #              self.wheels_cmd_executed.vel_right,
+    #          ]
+    #          if self.obstacle_stop_line_detected:
+    #              v, omega = self.controller.compute_control_action(
+    #                  d_err,
+    #                  phi_err,
+    #                  dt,
+    #                  wheels_cmd_exec,
+    #                  self.obstacle_stop_line_distance,
+    #              )
+    #              # TODO: This is a temporarily fix to avoid vehicle image detection latency caused unable to stop in time.
+    #              v = v * 0.25
+    #              omega = omega * 0.25
 
-            else:
-                v, omega = self.controller.compute_control_action(
-                    d_err, phi_err, dt, wheels_cmd_exec, self.stop_line_distance
-                )
+    #          else:
+    #              v, omega = self.controller.compute_control_action(
+    #                  d_err, phi_err, dt, wheels_cmd_exec, self.stop_line_distance
+    #              )
 
-            # For feedforward action (i.e. during intersection navigation)
-            omega += self.params["~omega_ff"]
+    #          # For feedforward action (i.e. during intersection navigation)
+    #          omega += self.params["~omega_ff"]
 
-        # Initialize car control msg, add header from input message
-        car_control_msg = Twist2DStamped()
-        car_control_msg.header = pose_msg.header
+    #      # Initialize car control msg, add header from input message
+    #      car_control_msg = Twist2DStamped()
+    #      car_control_msg.header = pose_msg.header
 
-        # Add commands to car message
-        car_control_msg.v = v
-        car_control_msg.omega = omega
+    #      # Add commands to car message
+    #      car_control_msg.v = v
+    #      car_control_msg.omega = omega
 
-        self.publishCmd(car_control_msg)
-        self.last_s = current_s
+    #      self.publishCmd(car_control_msg)
+    #      self.last_s = current_s
 
-    def cbParametersChanged(self):
-        """Updates parameters in the controller object."""
+    #  def cbParametersChanged(self):
+    #      """Updates parameters in the controller object."""
 
-        self.controller.update_parameters(self.params)
+    #      self.controller.update_parameters(self.params)
 
 
 if __name__ == "__main__":
