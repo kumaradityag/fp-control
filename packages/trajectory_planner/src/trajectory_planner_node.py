@@ -79,9 +79,18 @@ class TrajectoryPlannerNode(DTROS):
         """
         Receive projected ground segments and compute a centerline.
         """
-        path_msg, centerline_pts = self.compute_centerline_path(msg)
+        # Convert lane boundaries into an ordered centerline path
+        yellow_pts, white_pts = self.get_lane_boundaries(msg)
+        centerline_pts = trajectory_generation.compute_centerline(
+            yellow_pts,
+            white_pts,
+            self.max_forward,
+            self.n_samples,
+            self.lane_width,
+        )
 
         # publish trajectory
+        path_msg = self.build_path_message(msg, centerline_pts)
         self.pub_path.publish(path_msg)
 
         # publish debug image
@@ -92,15 +101,11 @@ class TrajectoryPlannerNode(DTROS):
             dbg.header = msg.header
             self.pub_debug_img.publish(dbg)
 
-    # Centerline computation
-    def compute_centerline_path(
-        self, seglist: SegmentList
-    ) -> Tuple[Path, List[Tuple[float, float]]]:
+    def get_lane_boundaries(self, seglist: SegmentList) -> Tuple[np.array, np.array]:
         """
-        Convert lane boundaries into an ordered centerline path,
-        then produce a nav_msgs/Path for pure pursuit.
+        Convert segment list into yellow and white lane boundaries and 
+        remove white lines on the left side
         """
-
         yellow_pts = []
         white_pts = []
 
@@ -112,7 +117,7 @@ class TrajectoryPlannerNode(DTROS):
             if seg.color == SegmentMsg.YELLOW:
                 yellow_pts += [p1, p2]
             elif seg.color == SegmentMsg.WHITE:
-                if (p1[1] > 0.0) or (p2[1] > 0.0):
+                if (p1[1] > 0.0) or (p2[1] > 0.0): # TODO: ignore white lines at the left of yellow lines
                     remove_seglist_idx.append(idx)  # ignore white lines on left side
                     continue
                 white_pts += [p1, p2]
@@ -127,15 +132,10 @@ class TrajectoryPlannerNode(DTROS):
         yellow_pts = np.array(yellow_pts)
         white_pts = np.array(white_pts)
 
-        centerline = trajectory_generation.compute_centerline(
-            yellow_pts,
-            white_pts,
-            self.max_forward,
-            self.n_samples,
-            self.lane_width,
-        )
+        return yellow_pts, white_pts
 
-        # Build Path message
+    def build_path_message(self, seglist: SegmentList, centerline: 
+                           List[Tuple[float, float]]) -> Path:
         path_msg = Path()
         path_msg.header = seglist.header
 
@@ -146,7 +146,7 @@ class TrajectoryPlannerNode(DTROS):
             pose.pose.position.y = y
             path_msg.poses.append(pose)
 
-        return path_msg, centerline
+        return path_msg
 
     # Debug image
     def render_debug(
