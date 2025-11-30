@@ -9,6 +9,9 @@ def compute_centerline(
     n_samples: int,
     lane_width: float,
 ) -> List[Tuple[float, float]]:
+    if len(yellow_pts) < 2 or len(white_pts) < 2:
+        return []
+
     x_samples = np.linspace(0.05, max_forward, n_samples)
 
     centerline = []

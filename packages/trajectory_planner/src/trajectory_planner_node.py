@@ -126,9 +126,6 @@ class TrajectoryPlannerNode(DTROS):
         for idx in sorted(remove_seglist_idx, reverse=True):
             del seglist.segments[idx]
 
-        if len(yellow_pts) < 2 or len(white_pts) < 2:
-            return Path(), []
-
         yellow_pts = np.array(yellow_pts)
         white_pts = np.array(white_pts)
 
@@ -136,6 +133,9 @@ class TrajectoryPlannerNode(DTROS):
 
     def build_path_message(self, seglist: SegmentList, centerline: 
                            List[Tuple[float, float]]) -> Path:
+        if len(centerline) == 0:
+            return Path()
+
         path_msg = Path()
         path_msg.header = seglist.header
 
