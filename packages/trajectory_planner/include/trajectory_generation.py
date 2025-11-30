@@ -27,3 +27,24 @@ def compute_centerline(
         centerline.append((x, y_center))
 
     return centerline
+
+def polynomial_fit(points: np.ndarray, deg: int = 2, threshold: float = 0.5) -> np.ndarray:
+    """
+    Fits points to polynomial curve and remove outliers
+    """
+    # remove outlier points
+    xs, ys = points[:, 0], points[:, 1]
+    coeffs = np.polyfit(xs, ys, deg)
+    fit_ys = np.polyval(coeffs, xs)
+    mask = np.abs(ys - fit_ys) < threshold # FIXME: use std instead of threshold?
+    points = points[mask]
+
+    # polynomial fit
+    xs, ys = points[:, 0], points[:, 1]
+    coeffs = np.polyfit(xs, ys, deg)
+    fit_ys = np.polyval(coeffs, xs)
+    polynomial_points = np.column_stack((xs, fit_ys))
+
+    # TODO: fit polynomial curve further
+
+    return polynomial_points

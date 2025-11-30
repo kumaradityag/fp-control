@@ -79,11 +79,21 @@ class TrajectoryPlannerNode(DTROS):
         """
         Receive projected ground segments and compute a centerline.
         """
-        # Convert lane boundaries into an ordered centerline path
+        # M0: Convert lane boundaries into an ordered centerline path using naive method
         yellow_pts, white_pts = self.get_lane_boundaries(msg)
         centerline_pts = trajectory_generation.compute_centerline(
             yellow_pts,
             white_pts,
+            self.max_forward,
+            self.n_samples,
+            self.lane_width,
+        )
+
+        # M1: Convert lane boundaries into an ordered centerline path using polynomial fit method
+        yellow_pts_poly, white_pts_poly = self.get_polynomial_lane_boundaries(msg)
+        centerline_pts_poly = trajectory_generation.compute_centerline(
+            yellow_pts_poly,
+            white_pts_poly,
             self.max_forward,
             self.n_samples,
             self.lane_width,
@@ -96,10 +106,58 @@ class TrajectoryPlannerNode(DTROS):
         # publish debug image
         # if self.pub_debug_img.anybody_listening():
         if self.debug:
-            debug_img = self.render_debug(msg, centerline_pts)
+            debug_img = self.render_debug(
+                    msg,
+                    centerline_pts, 
+                    centerline_pts_poly,
+                    yellow_pts_poly,
+                    white_pts_poly,
+            )
             dbg = self.bridge.cv2_to_compressed_imgmsg(debug_img)
             dbg.header = msg.header
             self.pub_debug_img.publish(dbg)
+
+    def get_polynomial_lane_boundaries(self, seglist: SegmentList) -> Tuple[np.array, np.array]:
+        """
+        Convert segment list into yellow and white lane boundaries using
+        polynomial fit
+        """
+        yellow_pts = []
+        white_pts = []
+
+        remove_seglist_idx = []
+        for idx, seg in enumerate(seglist.segments):
+            p1 = np.array([seg.points[0].x, seg.points[0].y])
+            p2 = np.array([seg.points[1].x, seg.points[1].y])
+
+            if seg.color == SegmentMsg.YELLOW:
+                yellow_pts += [p1, p2]
+            elif seg.color == SegmentMsg.WHITE:
+                if (p1[1] > 0.0) or (p2[1] > 0.0): # TODO: ignore white lines at the left of yellow lines
+                    remove_seglist_idx.append(idx)  # ignore white lines on left side
+                    continue
+                white_pts += [p1, p2]
+
+        # Remove unwanted segments
+        for idx in sorted(remove_seglist_idx, reverse=True):
+            del seglist.segments[idx]
+
+        yellow_pts = np.array(yellow_pts)
+        white_pts = np.array(white_pts)
+
+        # adjust yellow and white lane boudaries using polynomial fit
+        yellow_pts_adjusted = trajectory_generation.polynomial_fit(
+                yellow_pts, 
+                2, 
+                0.5
+        )
+        white_pts_adjusted = trajectory_generation.polynomial_fit(
+                white_pts,
+                2, 
+                0.8
+        )
+
+        return yellow_pts_adjusted, white_pts_adjusted
 
     def get_lane_boundaries(self, seglist: SegmentList) -> Tuple[np.array, np.array]:
         """
@@ -117,7 +175,7 @@ class TrajectoryPlannerNode(DTROS):
             if seg.color == SegmentMsg.YELLOW:
                 yellow_pts += [p1, p2]
             elif seg.color == SegmentMsg.WHITE:
-                if (p1[1] > 0.0) or (p2[1] > 0.0): # TODO: ignore white lines at the left of yellow lines
+                if (p1[1] > 0.0) or (p2[1] > 0.0):
                     remove_seglist_idx.append(idx)  # ignore white lines on left side
                     continue
                 white_pts += [p1, p2]
@@ -150,7 +208,9 @@ class TrajectoryPlannerNode(DTROS):
 
     # Debug image
     def render_debug(
-        self, seglist: SegmentList, trajectory_points: List[Tuple[float, float]]
+        self, seglist: SegmentList, trajectory_points: List[Tuple[float, float]], 
+        adjusted_trajectory_points: List[Tuple[float, float]], 
+        yellow_pts_adjusted: np.array, white_pts_adjusted: np.array, 
     ) -> np.ndarray:
         """
         Reproduce the ground_projection-style debug image,
@@ -253,6 +313,37 @@ class TrajectoryPlannerNode(DTROS):
                 gp, resolution, (origin_u, origin_v), (cell_x, cell_y)
             )
             cv2.circle(img, (u, v), int(8 * s), (0, 0, 255), -1)
+
+        # ----------------------------------------------------------------------
+        # Draw ADJUSTED CENTERLINE TRAJECTORY (green dots)
+        # ----------------------------------------------------------------------
+        for x, y in adjusted_trajectory_points:
+            gp = GroundPoint(x, y)
+            u, v = robot_to_image_frame(
+                gp, resolution, (origin_u, origin_v), (cell_x, cell_y)
+            )
+            cv2.circle(img, (u, v), int(8 * s), (0, 255, 0), -1)
+
+        # ----------------------------------------------------------------------
+        # Draw ADJUSTED WHITE LANE BOUNDARIES (black dots)
+        # ----------------------------------------------------------------------
+        for x, y in white_pts_adjusted:
+            gp = GroundPoint(x, y)
+            u, v = robot_to_image_frame(
+                gp, resolution, (origin_u, origin_v), (cell_x, cell_y)
+            )
+            cv2.circle(img, (u, v), int(8 * s), (0, 0, 0), -1)
+
+        # ----------------------------------------------------------------------
+        # Draw ADJUSTED YELLOW LANE BOUNDARIES (orange dots)
+        # ----------------------------------------------------------------------
+        for x, y in yellow_pts_adjusted:
+            gp = GroundPoint(x, y)
+            u, v = robot_to_image_frame(
+                gp, resolution, (origin_u, origin_v), (cell_x, cell_y)
+            )
+            cv2.circle(img, (u, v), int(8 * s), (0, 165, 255), -1)
+
 
         return img
 
