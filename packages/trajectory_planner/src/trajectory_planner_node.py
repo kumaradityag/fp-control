@@ -42,6 +42,7 @@ class TrajectoryPlannerNode(DTROS):
         self.n_samples = rospy.get_param("~n_samples", 25)
         self.lookahead_distance = rospy.get_param("~lookahead_distance", 0.35)
         self.lane_width = rospy.get_param("~lane_width", 0.23)
+        self.epsilon = rospy.get_param("~epsilon", 1e-2)
 
         # debug grid params (match ground_projection)
         self.grid_size = rospy.get_param("~grid_size", 4)
@@ -136,6 +137,7 @@ class TrajectoryPlannerNode(DTROS):
             self.max_forward,
             self.n_samples,
             self.lane_width,
+            self.epsilon,
         )
 
         # Build Path message
