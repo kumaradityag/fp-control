@@ -47,13 +47,13 @@
        <arg name="param_file_name" value="$(arg param_file_name)"/>
     </include>
 
-    <!-- Lane Filter -->
+    <!-- Lane Filter
     <remap from="lane_filter_node/segment_list"
            to="ground_projection_node/lineseglist_out"/>
     <include file="$(find lane_filter)/launch/lane_filter_node.launch">
         <arg name="veh" value="$(arg veh)"/>
         <arg name="param_file_name" value="$(arg param_file_name)"/>
-    </include>
+    </include> -->
 
     <!-- Lane Controller
     <remap from="lane_controller_node/lane_pose"
