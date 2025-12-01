@@ -42,6 +42,7 @@ class TrajectoryPlannerNode(DTROS):
         self.n_samples = rospy.get_param("~n_samples", 25)
         self.lookahead_distance = rospy.get_param("~lookahead_distance", 0.35)
         self.lane_width = rospy.get_param("~lane_width", 0.23)
+        self.epsilon = rospy.get_param("~epsilon", 1e-2)
 
         # debug grid params (match ground_projection)
         self.grid_size = rospy.get_param("~grid_size", 4)
@@ -104,35 +105,39 @@ class TrajectoryPlannerNode(DTROS):
         yellow_pts = []
         white_pts = []
 
-        remove_seglist_idx = []
-        for idx, seg in enumerate(seglist.segments):
+        yellow_normals = []
+        white_normals = []
+
+        for seg in seglist.segments:
             p1 = np.array([seg.points[0].x, seg.points[0].y])
             p2 = np.array([seg.points[1].x, seg.points[1].y])
 
+            normal = np.array([seg.normal.x, seg.normal.y])
+
             if seg.color == SegmentMsg.YELLOW:
                 yellow_pts += [p1, p2]
+                yellow_normals += [normal, normal]
             elif seg.color == SegmentMsg.WHITE:
-                if (p1[1] > 0.0) or (p2[1] > 0.0):
-                    remove_seglist_idx.append(idx)  # ignore white lines on left side
-                    continue
                 white_pts += [p1, p2]
-
-        # Remove unwanted segments
-        for idx in sorted(remove_seglist_idx, reverse=True):
-            del seglist.segments[idx]
+                white_normals += [normal, normal]
 
         if len(yellow_pts) < 2 or len(white_pts) < 2:
             return Path(), []
 
         yellow_pts = np.array(yellow_pts)
         white_pts = np.array(white_pts)
+        yellow_normals = np.array(yellow_normals)
+        white_normals = np.array(white_normals)
 
         centerline = trajectory_generation.compute_centerline(
             yellow_pts,
             white_pts,
+            yellow_normals,
+            white_normals,
             self.max_forward,
             self.n_samples,
             self.lane_width,
+            self.epsilon,
         )
 
         # Build Path message
