@@ -115,6 +115,7 @@ def compute_centerline(
     poly_degree,
     ransac_max_iterations,
     ransac_distance_threshold,
+    yellow_pts_threshold,
 ):
     half_width = (lane_width / 2.0) + epsilon
 
@@ -156,23 +157,24 @@ def compute_centerline(
     # y_yellow = None  # ignore white line for now
 
     # Case A: both lanes present
-    if y_yellow is not None and y_white is not None:
-        yx_s, yy_s = shift_poly_curve(xs, y_yellow, d_yellow, +half_width)
-        wx_s, wy_s = shift_poly_curve(xs, y_white, d_white, -half_width)
-        center_x = 0.5 * (yx_s + wx_s)
-        center_y = 0.5 * (yy_s + wy_s)
-        return list(zip(center_x, center_y))
+    #  if y_yellow is not None and y_white is not None:
+    #      yx_s, yy_s = shift_poly_curve(xs, y_yellow, d_yellow, +half_width)
+    #      wx_s, wy_s = shift_poly_curve(xs, y_white, d_white, -half_width)
+    #      center_x = 0.5 * (yx_s + wx_s)
+    #      center_y = 0.5 * (yy_s + wy_s)
+    #      return list(zip(center_x, center_y))
 
-    # Case B: only yellow present
-    if y_yellow is not None:
+    # Case B: rely on yellow
+    #  yellow_pts_threshold = 20
+    if y_white is None or len(yellow_pts) >= yellow_pts_threshold:
         cx, cy = shift_poly_curve(xs, y_yellow, d_yellow, +half_width)
         # smoothed = decide_and_smooth(cx, cy, yellow_coeffs, traj_buffer)
         smoothed = cx, cy
         cx_s, cy_s = smoothed
         return list(zip(cx_s, cy_s))
 
-    # Case C: only white present
-    if y_white is not None:
+    # Case B: rely on white
+    if y_yellow is None or len(yellow_pts) < yellow_pts_threshold:
         cx, cy = shift_poly_curve(xs, y_white, d_white, -half_width)
         return list(zip(cx, cy))
 

@@ -71,6 +71,13 @@ class TrajectoryPlannerNode(DTROS):
             min_value=0.0,
             max_value=1.0,
         )
+        self.yellow_pts_threshold = DTParam(
+            "~yellow_pts_threshold",
+            param_type=ParamType.INT,
+            min_value=0.0,
+            max_value=50.0,
+        )
+
 
         self.lane_width = DTParam(
             "~lane_width",
@@ -100,6 +107,7 @@ class TrajectoryPlannerNode(DTROS):
             min_value=0.0,
             max_value=1.0,
         )
+
 
         # Debug grid params
         self.grid_size = DTParam(
@@ -164,6 +172,7 @@ class TrajectoryPlannerNode(DTROS):
             dbg.header = msg.header
             self.pub_debug_img.publish(dbg)
 
+
     # Centerline computation
     def compute_centerline_path(
         self, seglist: SegmentList
@@ -211,6 +220,7 @@ class TrajectoryPlannerNode(DTROS):
             self.poly_degree.value,
             self.ransac_max_iterations.value,
             self.ransac_distance_threshold.value,
+            self.yellow_pts_threshold,
         )
 
         # Build Path message
