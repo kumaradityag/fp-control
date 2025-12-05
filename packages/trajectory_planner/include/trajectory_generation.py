@@ -96,12 +96,12 @@ def decide_and_smooth(xs, ys, coeffs, trajectory_buffer):
         return prev  # fallback to previous
 
     # Case 3: smooth the trajectory
-    xs_s, ys_s = trajectory_buffer.smooth(xs, ys)
+    # xs_s, ys_s = trajectory_buffer.smooth(xs, ys)
 
     # Add smoothed trajectory to the buffer
-    trajectory_buffer.add(xs_s, ys_s, coeffs)
+    trajectory_buffer.add(xs, ys, coeffs)
 
-    return xs_s, ys_s
+    return xs, ys
 
 
 def compute_centerline(
@@ -168,15 +168,17 @@ def compute_centerline(
     #  yellow_pts_threshold = 20
     if y_white is None or len(yellow_pts) >= yellow_pts_threshold:
         cx, cy = shift_poly_curve(xs, y_yellow, d_yellow, +half_width)
-        # smoothed = decide_and_smooth(cx, cy, yellow_coeffs, traj_buffer)
-        smoothed = cx, cy
+        smoothed = decide_and_smooth(cx, cy, yellow_coeffs, traj_buffer)
         cx_s, cy_s = smoothed
         return list(zip(cx_s, cy_s))
 
     # Case B: rely on white
     if y_yellow is None or len(yellow_pts) < yellow_pts_threshold:
+        print("Relying on white line for centerline")
         cx, cy = shift_poly_curve(xs, y_white, d_white, -half_width)
-        return list(zip(cx, cy))
+        smoothed = decide_and_smooth(cx, cy, white_coeffs, traj_buffer)
+        cx_s, cy_s = smoothed
+        return list(zip(cx_s, cy_s))
 
     # Case D: nothing detected ----
     return list(zip(xs, np.zeros_like(xs)))

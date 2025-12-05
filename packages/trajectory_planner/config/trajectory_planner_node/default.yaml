@@ -2,15 +2,15 @@ max_forward: 0.6
 n_samples: 30
 lane_width: 0.21
 epsilon: 0.02
-yellow_pts_threshold: 20
+yellow_pts_threshold: 10
 
 ransac_max_iterations: 100
 ransac_distance_threshold: 0.06
 poly_degree: 2
 
 buffer_size: 5
-buffer_threshold: 0.15
 buffer_smooth_alpha: 0.8
+buffer_theta_threshold: 60
 
 # Debug Visualization Parameters
 grid_size: 4

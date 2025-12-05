@@ -4,7 +4,7 @@ from collections import deque
 
 class TrajectoryBuffer:
     def __init__(
-        self, max_size=5, theta_threshold=0.15, smooth_alpha=0.5, max_reject_count=3
+        self, max_size=5, theta_threshold=60.0, smooth_alpha=0.5, max_reject_count=3
     ):
         """
         max_size: number of previous trajectories to store
@@ -48,7 +48,7 @@ class TrajectoryBuffer:
             return 0.0
 
         prev_xs, prev_ys = prev
-        sample_idx = len(prev_xs) / 2
+        sample_idx = len(prev_xs) // 2
         x_sample, y_sample = xs[sample_idx], ys[sample_idx]
         prev_x_sample, prev_y_sample = prev_xs[sample_idx], prev_ys[sample_idx]
         theta1 = np.arctan(y_sample / x_sample)

@@ -78,7 +78,6 @@ class TrajectoryPlannerNode(DTROS):
             max_value=50.0,
         )
 
-
         self.lane_width = DTParam(
             "~lane_width",
             param_type=ParamType.FLOAT,
@@ -95,11 +94,11 @@ class TrajectoryPlannerNode(DTROS):
         self.buffer_size = DTParam(
             "~buffer_size", param_type=ParamType.INT, min_value=1, max_value=20
         )
-        self.buffer_threshold = DTParam(
-            "~buffer_threshold",
+        self.buffer_theta_threshold = DTParam(
+            "~buffer_theta_threshold",
             param_type=ParamType.FLOAT,
             min_value=0.0,
-            max_value=1.0,
+            max_value=180.0,
         )
         self.buffer_smooth_alpha = DTParam(
             "~buffer_smooth_alpha",
@@ -107,7 +106,6 @@ class TrajectoryPlannerNode(DTROS):
             min_value=0.0,
             max_value=1.0,
         )
-
 
         # Debug grid params
         self.grid_size = DTParam(
@@ -129,7 +127,7 @@ class TrajectoryPlannerNode(DTROS):
 
         self.traj_buffer = TrajectoryBuffer(
             max_size=self.buffer_size.value,
-            change_threshold=self.buffer_threshold.value,
+            theta_threshold=self.buffer_theta_threshold.value,
             smooth_alpha=self.buffer_smooth_alpha.value,
         )
 
@@ -171,7 +169,6 @@ class TrajectoryPlannerNode(DTROS):
             dbg = self.bridge.cv2_to_compressed_imgmsg(debug_img)
             dbg.header = msg.header
             self.pub_debug_img.publish(dbg)
-
 
     # Centerline computation
     def compute_centerline_path(
@@ -220,7 +217,7 @@ class TrajectoryPlannerNode(DTROS):
             self.poly_degree.value,
             self.ransac_max_iterations.value,
             self.ransac_distance_threshold.value,
-            self.yellow_pts_threshold,
+            self.yellow_pts_threshold.value,
         )
 
         # Build Path message
