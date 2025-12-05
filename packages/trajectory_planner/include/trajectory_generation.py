@@ -4,7 +4,7 @@ from typing import List, Tuple, Optional
 
 
 def get_spline_path(
-    pts: np.ndarray, n_samples: int, smoothing: float = 0.0
+    pts: np.ndarray, n_samples: int, smoothing: float = 0.0, max_forward: float = 0.6
 ) -> Optional[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]]:
     """
     Fits a B-spline to points and returns (x, y) coordinates and (dx, dy) derivatives.
@@ -79,7 +79,7 @@ def compute_centerline(
             valid_y = yellow_pts[mask]
 
     # --- 2. Fit Spline to Yellow Line ---
-    y_res = get_spline_path(valid_y, n_samples)
+    y_res = get_spline_path(valid_y, n_samples, max_forward)
 
     center_x, center_y = [], []
 
