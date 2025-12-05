@@ -9,7 +9,7 @@ dt-launchfile-init
 # ----------------------------------------------------------------------------
 
 # launching app
-dt-exec roslaunch --wait duckietown_demos lane_following_pid.launch
+dt-exec roslaunch --wait duckietown_demos lane_following_pp.launch
 
 
 # ----------------------------------------------------------------------------
