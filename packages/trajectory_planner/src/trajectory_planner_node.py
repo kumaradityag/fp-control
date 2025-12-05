@@ -18,6 +18,7 @@ from dt_computer_vision.ground_projection.rendering import (
 )
 
 from trajectory_planner.include import trajectory_generation
+from trajectory_planner.include.buffer import TrajectoryBuffer
 
 from typing import List, Tuple
 
@@ -42,7 +43,7 @@ class TrajectoryPlannerNode(DTROS):
             "~max_forward",
             param_type=ParamType.FLOAT,
             min_value=0.0,
-            max_value=5.0,
+            max_value=1.0,
         )
 
         self.n_samples = DTParam(
@@ -50,6 +51,25 @@ class TrajectoryPlannerNode(DTROS):
             param_type=ParamType.INT,
             min_value=1,
             max_value=200,
+        )
+
+        self.poly_degree = DTParam(
+            "~poly_degree",
+            param_type=ParamType.INT,
+            min_value=1,
+            max_value=5,
+        )
+        self.ransac_max_iterations = DTParam(
+            "~ransac_max_iterations",
+            param_type=ParamType.INT,
+            min_value=1,
+            max_value=1000,
+        )
+        self.ransac_distance_threshold = DTParam(
+            "~ransac_distance_threshold",
+            param_type=ParamType.FLOAT,
+            min_value=0.0,
+            max_value=1.0,
         )
 
         self.lane_width = DTParam(
@@ -61,6 +81,21 @@ class TrajectoryPlannerNode(DTROS):
 
         self.epsilon = DTParam(
             "~epsilon",
+            param_type=ParamType.FLOAT,
+            min_value=0.0,
+            max_value=1.0,
+        )
+        self.buffer_size = DTParam(
+            "~buffer_size", param_type=ParamType.INT, min_value=1, max_value=20
+        )
+        self.buffer_threshold = DTParam(
+            "~buffer_threshold",
+            param_type=ParamType.FLOAT,
+            min_value=0.0,
+            max_value=1.0,
+        )
+        self.buffer_smooth_alpha = DTParam(
+            "~buffer_smooth_alpha",
             param_type=ParamType.FLOAT,
             min_value=0.0,
             max_value=1.0,
@@ -83,6 +118,12 @@ class TrajectoryPlannerNode(DTROS):
         self.bridge = CvBridge()
 
         self.debug = True
+
+        self.traj_buffer = TrajectoryBuffer(
+            max_size=self.buffer_size.value,
+            change_threshold=self.buffer_threshold.value,
+            smooth_alpha=self.buffer_smooth_alpha.value,
+        )
 
         self.sub_segments = rospy.Subscriber(
             "~segments",
@@ -162,12 +203,14 @@ class TrajectoryPlannerNode(DTROS):
         centerline = trajectory_generation.compute_centerline(
             yellow_pts,
             white_pts,
-            yellow_normals,
-            white_normals,
+            self.traj_buffer,
             self.max_forward.value,
             self.n_samples.value,
             self.lane_width.value,
             self.epsilon.value,
+            self.poly_degree.value,
+            self.ransac_max_iterations.value,
+            self.ransac_distance_threshold.value,
         )
 
         # Build Path message
