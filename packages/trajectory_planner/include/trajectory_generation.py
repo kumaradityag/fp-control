@@ -153,7 +153,7 @@ def compute_centerline(
         d_white = np.polyval(np.polyder(white_coeffs), xs)
 
     # Current mode:
-    y_white = None  # ignore white line for now
+    # y_yellow = None  # ignore white line for now
 
     # Case A: both lanes present
     if y_yellow is not None and y_white is not None:
@@ -166,7 +166,8 @@ def compute_centerline(
     # Case B: only yellow present
     if y_yellow is not None:
         cx, cy = shift_poly_curve(xs, y_yellow, d_yellow, +half_width)
-        smoothed = decide_and_smooth(cx, cy, yellow_coeffs, traj_buffer)
+        # smoothed = decide_and_smooth(cx, cy, yellow_coeffs, traj_buffer)
+        smoothed = cx, cy
         cx_s, cy_s = smoothed
         return list(zip(cx_s, cy_s))
 

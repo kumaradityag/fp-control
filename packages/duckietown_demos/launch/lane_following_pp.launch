@@ -47,7 +47,7 @@
        <arg name="param_file_name" value="$(arg param_file_name)"/>
     </include>
 
-    <!-- Pure Pursuit Controller
+    <!-- Pure Pursuit Controller -->
     <remap from="pure_pursuit_controller_node/trajectory"
            to="trajectory_planner_node/trajectory" />
     <remap from="pure_pursuit_controller_node/wheels_cmd"
@@ -61,6 +61,6 @@
     <include file="$(find pure_pursuit_control)/launch/pure_pursuit_controller_node.launch">
         <arg name="veh" value="$(arg veh)"/>
         <arg name="param_file_name" value="$(arg param_file_name)"/>
-    </include> -->
+    </include>
 
 </launch>
