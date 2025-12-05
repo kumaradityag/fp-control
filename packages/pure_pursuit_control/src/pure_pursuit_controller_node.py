@@ -94,10 +94,11 @@ class PurePursuitControllerNode(DTROS):
         ]
         self.last_found_index = 0
 
-        self.log(f"pure pursuit trajectory points: {len(self.path_points)}")
+        self.cbParametersChanged()
+
+        # self.log(f"pure pursuit trajectory points: {len(self.path_points)}")
 
         self.computeControlAction(path_msg)
-
 
     def computeControlAction(self, path_msg):
         """
@@ -109,7 +110,6 @@ class PurePursuitControllerNode(DTROS):
             return
 
         v, omega = self.controller.compute_control_action(self.path_points)
-
 
         # FIXME: reduce speed if stopline is near (or if corner)
         if self.stop_line_detected and (self.stop_line_distance is not None):
@@ -161,7 +161,6 @@ class PurePursuitControllerNode(DTROS):
         if not self.stop_line_detected:
             self.stop_line_distance = None
 
-
     def cbWheelsCmdExecuted(self, msg_wheels_cmd):
         """Callback that reports if the requested control action was executed.
 
@@ -170,7 +169,6 @@ class PurePursuitControllerNode(DTROS):
         """
         self.wheels_cmd_executed = msg_wheels_cmd
 
-
     def publishCmd(self, car_cmd_msg):
         """Publishes a car command message.
 
@@ -178,7 +176,6 @@ class PurePursuitControllerNode(DTROS):
             car_cmd_msg (:obj:`Twist2DStamped`): Message containing the requested control action.
         """
         self.pub_car_cmd.publish(car_cmd_msg)
-
 
     def cbParametersChanged(self):
         """Updates parameters in the controller object."""
