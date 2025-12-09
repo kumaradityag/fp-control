@@ -120,8 +120,10 @@ def compute_centerline(
     half_width = (lane_width / 2.0) + epsilon
 
     # filter yellow and white points based on y coordinate
-    yellow_pts = yellow_pts[yellow_pts[:, 1] > (-half_width + epsilon)]
-    white_pts = white_pts[white_pts[:, 1] < (half_width - epsilon)]
+    if len(yellow_pts) > 0:
+        yellow_pts = yellow_pts[yellow_pts[:, 1] > (-half_width + epsilon)]
+    if len(white_pts) > 0:
+        white_pts = white_pts[white_pts[:, 1] < (half_width - epsilon)]
 
     # x_min is the min x value of yellow points
     x_min = np.min(yellow_pts[:, 0]) if len(yellow_pts) > 0 else 0.0
@@ -164,21 +166,21 @@ def compute_centerline(
     #      center_y = 0.5 * (yy_s + wy_s)
     #      return list(zip(center_x, center_y))
 
-    # Case B: rely on yellow
-    #  yellow_pts_threshold = 20
-    if y_white is None or len(yellow_pts) >= yellow_pts_threshold:
+    if y_yellow is not None and len(y_yellow) > 0 and len(yellow_pts) >= yellow_pts_threshold: 
+        # Rely on yellow
         cx, cy = shift_poly_curve(xs, y_yellow, d_yellow, +half_width)
         smoothed = decide_and_smooth(cx, cy, yellow_coeffs, traj_buffer)
         cx_s, cy_s = smoothed
         return list(zip(cx_s, cy_s))
-
-    # Case B: rely on white
-    if y_yellow is None or len(yellow_pts) < yellow_pts_threshold:
+    elif (y_yellow is None) or (len(yellow_pts) == 0) or (len(y_white) > 0 and len(yellow_pts) < yellow_pts_threshold):
         print("Relying on white line for centerline")
         cx, cy = shift_poly_curve(xs, y_white, d_white, -half_width)
         smoothed = decide_and_smooth(cx, cy, white_coeffs, traj_buffer)
         cx_s, cy_s = smoothed
         return list(zip(cx_s, cy_s))
+    else:
+        print('No Boundaries detected')
+
 
     # Case D: nothing detected ----
     return list(zip(xs, np.zeros_like(xs)))

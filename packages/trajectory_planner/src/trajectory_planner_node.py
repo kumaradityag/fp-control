@@ -198,8 +198,10 @@ class TrajectoryPlannerNode(DTROS):
                 white_pts += [p1, p2]
                 white_normals += [normal, normal]
 
-        if len(yellow_pts) < 2 or len(white_pts) < 2:
-            return Path(), []
+        # we handle case when there is no lane generated inside compute 
+        # centerlane
+        #  if len(yellow_pts) < 2 or len(white_pts) < 2:
+        #      return Path(), []
 
         yellow_pts = np.array(yellow_pts)
         white_pts = np.array(white_pts)
