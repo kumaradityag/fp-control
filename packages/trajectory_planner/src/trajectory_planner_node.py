@@ -45,6 +45,12 @@ class TrajectoryPlannerNode(DTROS):
             min_value=0.0,
             max_value=1.0,
         )
+        self.min_forward = DTParam(
+            "~min_forward",
+            param_type=ParamType.FLOAT,
+            min_value=-1.0,
+            max_value=1.0,
+        )
 
         self.n_samples = DTParam(
             "~n_samples",
@@ -76,6 +82,16 @@ class TrajectoryPlannerNode(DTROS):
             param_type=ParamType.INT,
             min_value=0.0,
             max_value=50.0,
+        )
+        self.white_pts_threshold = DTParam(
+            "~white_pts_threshold",
+            param_type=ParamType.INT,
+            min_value=0.0,
+            max_value=50.0,
+        )
+        self.default_mode = DTParam(
+            "~default_mode",
+            param_type=ParamType.STRING,
         )
 
         self.lane_width = DTParam(
@@ -198,7 +214,7 @@ class TrajectoryPlannerNode(DTROS):
                 white_pts += [p1, p2]
                 white_normals += [normal, normal]
 
-        # we handle case when there is no lane generated inside compute 
+        # we handle case when there is no lane generated inside compute
         # centerlane
         #  if len(yellow_pts) < 2 or len(white_pts) < 2:
         #      return Path(), []
@@ -212,6 +228,7 @@ class TrajectoryPlannerNode(DTROS):
             yellow_pts,
             white_pts,
             self.traj_buffer,
+            self.min_forward.value,
             self.max_forward.value,
             self.n_samples.value,
             self.lane_width.value,
@@ -220,6 +237,8 @@ class TrajectoryPlannerNode(DTROS):
             self.ransac_max_iterations.value,
             self.ransac_distance_threshold.value,
             self.yellow_pts_threshold.value,
+            self.white_pts_threshold.value,
+            self.default_mode.value,
         )
 
         # Build Path message

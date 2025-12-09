@@ -108,6 +108,7 @@ def compute_centerline(
     yellow_pts,
     white_pts,
     traj_buffer,
+    min_forward,
     max_forward,
     n_samples,
     lane_width,
@@ -116,71 +117,64 @@ def compute_centerline(
     ransac_max_iterations,
     ransac_distance_threshold,
     yellow_pts_threshold,
+    white_pts_threshold,
+    default_mode,
 ):
     half_width = (lane_width / 2.0) + epsilon
 
     # filter yellow and white points based on y coordinate
     if len(yellow_pts) > 0:
         yellow_pts = yellow_pts[yellow_pts[:, 1] > (-half_width + epsilon)]
+        yellow_pts = yellow_pts[yellow_pts[:, 0] > min_forward]  # only forward points
     if len(white_pts) > 0:
         white_pts = white_pts[white_pts[:, 1] < (half_width - epsilon)]
+        white_pts = white_pts[white_pts[:, 0] > min_forward]  # only forward points
 
     # x_min is the min x value of yellow points
     x_min = np.min(yellow_pts[:, 0]) if len(yellow_pts) > 0 else 0.0
-
     xs = np.linspace(x_min, max_forward, n_samples)
 
-    # Fit polynomials (RANSAC)
-    yellow_coeffs = ransac_polyfit(
-        yellow_pts,
-        degree=poly_degree,
-        threshold=ransac_distance_threshold,
-        iters=ransac_max_iterations,
-    )
-    white_coeffs = ransac_polyfit(
-        white_pts,
-        degree=poly_degree,
-        threshold=ransac_distance_threshold,
-        iters=ransac_max_iterations,
-    )
+    default_mode = default_mode.upper()
+    if default_mode not in ["WHITE", "YELLOW"]:
+        default_mode = "WHITE"
 
-    y_yellow = d_yellow = None
-    y_white = d_white = None
+    if default_mode == "WHITE" and len(white_pts) >= white_pts_threshold:
+        mode = "WHITE"
+    elif default_mode == "YELLOW" and len(yellow_pts) >= yellow_pts_threshold:
+        mode = "YELLOW"
+    elif len(white_pts) >= white_pts_threshold:
+        mode = "WHITE"
+    elif len(yellow_pts) >= yellow_pts_threshold:
+        mode = "YELLOW"
+    else:
+        mode = "NONE"
+        print("No sufficient points detected, empty centerline.")
 
-    if yellow_coeffs is not None:
-        y_yellow = np.polyval(yellow_coeffs, xs)
-        d_yellow = np.polyval(np.polyder(yellow_coeffs), xs)
-
-    if white_coeffs is not None:
+    if mode == "WHITE":
+        white_coeffs = ransac_polyfit(
+            white_pts,
+            degree=poly_degree,
+            threshold=ransac_distance_threshold,
+            iters=ransac_max_iterations,
+        )
         y_white = np.polyval(white_coeffs, xs)
         d_white = np.polyval(np.polyder(white_coeffs), xs)
-
-    # Current mode:
-    # y_yellow = None  # ignore white line for now
-
-    # Case A: both lanes present
-    #  if y_yellow is not None and y_white is not None:
-    #      yx_s, yy_s = shift_poly_curve(xs, y_yellow, d_yellow, +half_width)
-    #      wx_s, wy_s = shift_poly_curve(xs, y_white, d_white, -half_width)
-    #      center_x = 0.5 * (yx_s + wx_s)
-    #      center_y = 0.5 * (yy_s + wy_s)
-    #      return list(zip(center_x, center_y))
-
-    if y_yellow is not None and len(y_yellow) > 0 and len(yellow_pts) >= yellow_pts_threshold: 
-        # Rely on yellow
-        cx, cy = shift_poly_curve(xs, y_yellow, d_yellow, +half_width)
-        smoothed = decide_and_smooth(cx, cy, yellow_coeffs, traj_buffer)
-        cx_s, cy_s = smoothed
-        return list(zip(cx_s, cy_s))
-    elif (y_yellow is None) or (len(yellow_pts) == 0) or (len(y_white) > 0 and len(yellow_pts) < yellow_pts_threshold):
-        print("Relying on white line for centerline")
         cx, cy = shift_poly_curve(xs, y_white, d_white, -half_width)
         smoothed = decide_and_smooth(cx, cy, white_coeffs, traj_buffer)
         cx_s, cy_s = smoothed
         return list(zip(cx_s, cy_s))
-    else:
-        print('No Boundaries detected')
+    elif mode == "YELLOW":
+        yellow_coeffs = ransac_polyfit(
+            yellow_pts,
+            degree=poly_degree,
+            threshold=ransac_distance_threshold,
+            iters=ransac_max_iterations,
+        )
+        y_yellow = np.polyval(yellow_coeffs, xs)
+        d_yellow = np.polyval(np.polyder(yellow_coeffs), xs)
+        cx, cy = shift_poly_curve(xs, y_yellow, d_yellow, +half_width)
+        smoothed = decide_and_smooth(cx, cy, yellow_coeffs, traj_buffer)
+        cx_s, cy_s = smoothed
+        return list(zip(cx_s, cy_s))
 
-
-    # Case D: nothing detected ----
     return list(zip(xs, np.zeros_like(xs)))
