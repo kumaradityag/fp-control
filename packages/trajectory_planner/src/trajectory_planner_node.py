@@ -10,7 +10,7 @@ from sensor_msgs.msg import CompressedImage
 from geometry_msgs.msg import PoseStamped
 from duckietown_msgs.msg import SegmentList, Segment as SegmentMsg
 
-from duckietown.dtros import DTROS, NodeType, TopicType
+from duckietown.dtros import DTROS, NodeType, TopicType, DTParam, ParamType
 from dt_computer_vision.ground_projection.types import GroundPoint
 from dt_computer_vision.ground_projection.rendering import (
     draw_grid_image,
@@ -18,6 +18,7 @@ from dt_computer_vision.ground_projection.rendering import (
 )
 
 from trajectory_planner.include import trajectory_generation
+from trajectory_planner.include.buffer import TrajectoryBuffer
 
 from typing import List, Tuple
 
@@ -37,22 +38,114 @@ class TrajectoryPlannerNode(DTROS):
             node_type=NodeType.PLANNING,
         )
 
-        # Parameters
-        self.max_forward = rospy.get_param("~max_forward", 1.0)
-        self.n_samples = rospy.get_param("~n_samples", 25)
-        self.lookahead_distance = rospy.get_param("~lookahead_distance", 0.35)
-        self.lane_width = rospy.get_param("~lane_width", 0.23)
-        self.epsilon = rospy.get_param("~epsilon", 1e-2)
+        # Parameters (auto-updating via DTParam)
+        self.max_forward = DTParam(
+            "~max_forward",
+            param_type=ParamType.FLOAT,
+            min_value=0.0,
+            max_value=1.0,
+        )
+        self.min_forward = DTParam(
+            "~min_forward",
+            param_type=ParamType.FLOAT,
+            min_value=-1.0,
+            max_value=1.0,
+        )
 
-        # debug grid params (match ground_projection)
-        self.grid_size = rospy.get_param("~grid_size", 4)
-        self.scale = rospy.get_param("~scale", 1000)
-        self.padding = rospy.get_param("~padding", 80)
-        self.resolution = rospy.get_param("~resolution", 0.3)
+        self.n_samples = DTParam(
+            "~n_samples",
+            param_type=ParamType.INT,
+            min_value=1,
+            max_value=200,
+        )
+
+        self.poly_degree = DTParam(
+            "~poly_degree",
+            param_type=ParamType.INT,
+            min_value=1,
+            max_value=5,
+        )
+        self.ransac_max_iterations = DTParam(
+            "~ransac_max_iterations",
+            param_type=ParamType.INT,
+            min_value=1,
+            max_value=1000,
+        )
+        self.ransac_distance_threshold = DTParam(
+            "~ransac_distance_threshold",
+            param_type=ParamType.FLOAT,
+            min_value=0.0,
+            max_value=1.0,
+        )
+        self.yellow_pts_threshold = DTParam(
+            "~yellow_pts_threshold",
+            param_type=ParamType.INT,
+            min_value=0.0,
+            max_value=50.0,
+        )
+        self.white_pts_threshold = DTParam(
+            "~white_pts_threshold",
+            param_type=ParamType.INT,
+            min_value=0.0,
+            max_value=50.0,
+        )
+        self.default_mode = DTParam(
+            "~default_mode",
+            param_type=ParamType.STRING,
+        )
+
+        self.lane_width = DTParam(
+            "~lane_width",
+            param_type=ParamType.FLOAT,
+            min_value=0.0,
+            max_value=1.0,
+        )
+
+        self.epsilon = DTParam(
+            "~epsilon",
+            param_type=ParamType.FLOAT,
+            min_value=0.0,
+            max_value=1.0,
+        )
+        self.buffer_size = DTParam(
+            "~buffer_size", param_type=ParamType.INT, min_value=1, max_value=20
+        )
+        self.buffer_theta_threshold = DTParam(
+            "~buffer_theta_threshold",
+            param_type=ParamType.FLOAT,
+            min_value=0.0,
+            max_value=180.0,
+        )
+        self.buffer_smooth_alpha = DTParam(
+            "~buffer_smooth_alpha",
+            param_type=ParamType.FLOAT,
+            min_value=0.0,
+            max_value=1.0,
+        )
+
+        # Debug grid params
+        self.grid_size = DTParam(
+            "~grid_size", param_type=ParamType.INT, min_value=1, max_value=10
+        )
+        self.scale = DTParam(
+            "~scale", param_type=ParamType.INT, min_value=100, max_value=5000
+        )
+        self.padding = DTParam(
+            "~padding", param_type=ParamType.INT, min_value=0, max_value=300
+        )
+        self.resolution = DTParam(
+            "~resolution", param_type=ParamType.FLOAT, min_value=0.01, max_value=1.0
+        )
 
         self.bridge = CvBridge()
 
         self.debug = True
+
+        self.traj_buffer = TrajectoryBuffer(
+            max_size=self.buffer_size.value,
+            theta_threshold=self.buffer_theta_threshold.value,
+            smooth_alpha=self.buffer_smooth_alpha.value,
+        )
 
         self.sub_segments = rospy.Subscriber(
             "~segments",
@@ -121,8 +214,10 @@ class TrajectoryPlannerNode(DTROS):
                 white_pts += [p1, p2]
                 white_normals += [normal, normal]
 
-        if len(yellow_pts) < 2 or len(white_pts) < 2:
-            return Path(), []
+        # we handle case when there is no lane generated inside compute
+        # centerlane
+        #  if len(yellow_pts) < 2 or len(white_pts) < 2:
+        #      return Path(), []
 
         yellow_pts = np.array(yellow_pts)
         white_pts = np.array(white_pts)
@@ -132,12 +227,18 @@ class TrajectoryPlannerNode(DTROS):
         centerline = trajectory_generation.compute_centerline(
             yellow_pts,
             white_pts,
-            yellow_normals,
-            white_normals,
-            self.max_forward,
-            self.n_samples,
-            self.lane_width,
-            self.epsilon,
+            self.traj_buffer,
+            self.min_forward.value,
+            self.max_forward.value,
+            self.n_samples.value,
+            self.lane_width.value,
+            self.epsilon.value,
+            self.poly_degree.value,
+            self.ransac_max_iterations.value,
+            self.ransac_distance_threshold.value,
+            self.yellow_pts_threshold.value,
+            self.white_pts_threshold.value,
+            self.default_mode.value,
         )
 
         # Build Path message
@@ -165,20 +266,19 @@ class TrajectoryPlannerNode(DTROS):
         size = (600, 600)
         background = draw_grid_image(
             size=size,
-            grid_size=self.grid_size,
-            scale=self.scale,
-            s_padding=self.padding,
-            resolution=self.resolution,
+            grid_size=self.grid_size.value,
+            scale=self.scale.value,
+            s_padding=self.padding.value,
+            resolution=self.resolution.value,
             start_x=0.0,
         )
 
-        resolution = (self.resolution, self.resolution)
-        grid_x = grid_y = self.grid_size
+        resolution = (self.resolution.value, self.resolution.value)
+        grid_x = grid_y = self.grid_size.value
         size_u, size_v = size
 
-        s = max(size_u, size_v) / self.scale
-        padding_px = int(self.padding * s)
-
+        s = max(size_u, size_v) / self.scale.value
+        padding_px = int(self.padding.value * s)
         half_x = int(grid_x / 2)
         cell_x = int((size_u - 3 * padding_px) / grid_x)
         cell_y = int((size_v - 3 * padding_px) / grid_y)
@@ -218,36 +318,36 @@ class TrajectoryPlannerNode(DTROS):
             # Draw NORMAL (in BLUE)
             # ------------------------------------------------------------------
             # Compute midpoint in ground frame
-            mx = 0.5 * (p1.x + p2.x)
-            my = 0.5 * (p1.y + p2.y)
-            midpoint = GroundPoint(mx, my)
+            # mx = 0.5 * (p1.x + p2.x)
+            # my = 0.5 * (p1.y + p2.y)
+            # midpoint = GroundPoint(mx, my)
 
-            # Convert midpoint to debug-image pixel frame
-            um, vm = robot_to_image_frame(
-                midpoint, resolution, (origin_u, origin_v), (cell_x, cell_y)
-            )
+            # # Convert midpoint to debug-image pixel frame
+            # um, vm = robot_to_image_frame(
+            #     midpoint, resolution, (origin_u, origin_v), (cell_x, cell_y)
+            # )
 
-            # Ground-frame normal vector (already computed in earlier node)
-            nx = seg.normal.x
-            ny = seg.normal.y
+            # # Ground-frame normal vector (already computed in earlier node)
+            # nx = seg.normal.x
+            # ny = seg.normal.y
 
-            # Scale the vector for visibility on the debug image
-            normal_scale = 0.10  # meters → length of arrow
-            endp = GroundPoint(mx + nx * normal_scale, my + ny * normal_scale)
+            # # Scale the vector for visibility on the debug image
+            # normal_scale = 0.10  # meters → length of arrow
+            # endp = GroundPoint(mx + nx * normal_scale, my + ny * normal_scale)
 
-            ue, ve = robot_to_image_frame(
-                endp, resolution, (origin_u, origin_v), (cell_x, cell_y)
-            )
+            # ue, ve = robot_to_image_frame(
+            #     endp, resolution, (origin_u, origin_v), (cell_x, cell_y)
+            # )
 
-            # Draw a blue arrow
-            cv2.arrowedLine(
-                img,
-                (um, vm),
-                (ue, ve),
-                (255, 0, 0),  # BLUE
-                thickness=max(1, int(4 * s)),
-                tipLength=0.3,
-            )
+            # # Draw a blue arrow
+            # cv2.arrowedLine(
+            #     img,
+            #     (um, vm),
+            #     (ue, ve),
+            #     (255, 0, 0),  # BLUE
+            #     thickness=max(1, int(4 * s)),
+            #     tipLength=0.3,
+            # )
 
         # ----------------------------------------------------------------------
         # Draw CENTERLINE TRAJECTORY (red dots)

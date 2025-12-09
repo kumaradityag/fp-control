@@ -38,16 +38,22 @@ def find_goal_point(path, current_pos, lookahead_distance, last_found_index):
     - Extend lookahead_distance with max
     - Straight Line to closest point along path
     """
-    intersection_found = False
-    starting_index = last_found_index
 
     # Note: default goal point is last point in path - FIXME: can we trust this?
-    goal_point = [path[-1][0], path[-1][1]]
+    #  goal_point = [path[-1][0], path[-1][1]]
 
-    if len(path) == 1:
-        goal_point = [path[0]]
-        last_found_index = 0
-        return goal_point, last_found_index
+    #  if len(path) == 1:
+    #      goal_point = [path[0]]
+    #      last_found_index = 0
+    #      return goal_point, last_found_index
+
+    if len(path) < 2: # go straight to last point if generated path is not long enough
+        return path[-1] if path else (lookahead_distance, 0.0), last_found_index
+
+
+    intersection_found = False
+    starting_index = last_found_index
+    goal_point = None
 
     for i in range(starting_index, len(path) - 1):
         #  if intersection_found:
@@ -57,6 +63,11 @@ def find_goal_point(path, current_pos, lookahead_distance, last_found_index):
         y1, y2 = path[i][1] - current_pos[1], path[i + 1][1] - current_pos[1]
         dx, dy = x2 - x1, y2 - y1
         dr = np.sqrt(dx**2 + dy**2)
+
+        if dr < 1e-6: # skip zero-length segment
+            continue
+
+
         D = x1 * y2 + x2 * y1
         discriminant = (lookahead_distance**2) * (dr**2) - D**2
 
@@ -106,8 +117,8 @@ def find_goal_point(path, current_pos, lookahead_distance, last_found_index):
                 last_found_index = i + 1
                 break
 
-        # TODO: what to do if no intersection found
-        if not intersection_found:
-            pass
+        # what to do if no intersection found
+        if not intersection_found or goal_point is None:
+            goal_point = path[-1] if path else path_points[last_found_index]
 
         return goal_point, last_found_index

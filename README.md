@@ -18,7 +18,7 @@ dts duckiebot virtual start vbot
 
 # update
 dts update
-dts destktop update
+dts desktop update
 dts duckiebot update vbot
 
 git clone git@github.com:kumaradityag/fp-control
