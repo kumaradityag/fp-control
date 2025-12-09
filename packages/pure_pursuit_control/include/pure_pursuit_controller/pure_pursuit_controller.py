@@ -2,7 +2,7 @@ import numpy as np
 import math
 
 from pure_pursuit_control.include.pure_pursuit_controller.goal import (
-    find_goal_point,
+    find_goal_point, sgn
 )
 
 class PurePursuitController:
@@ -34,19 +34,27 @@ class PurePursuitController:
         )
 
         # 2. Compute control - compute turn error
+        #  FIXME we are in the robot frame, so we don't need to substract 
+        #  current position?
+
         dx, dy = (
             goal_point[0] - self.current_pos[0],
             goal_point[1] - self.current_pos[1],
         )
-        absTargetAngle = math.atan2(dy, dx)
+        abs_target_angle = math.atan2(dy, dx) * 180 / math.pi
+        if abs_target_angle < 0:
+            abs_target_angle += 360
 
-        turnError = absTargetAngle - self.current_heading
-        turnError = ((turnError + math.pi) % (2 * math.pi)) - math.pi
+        turn_error = abs_target_angle - self.current_heading
+        if turn_error > 180 or turn_error < -180:
+            turn_error = -1 * sgn(turn_error) * (360 - abs(turn_error))
+        turn_error_rad = np.deg2rad(turn_error)
 
-        omega = kp * turnError
+        #  L_d = math.sqrt(dx**2 + dy**2)
+        #  if L_d < 0.01:
+        #      return v_bar, 0.0
+
+        omega = kp * turn_error_rad
         v = v_bar
 
         return v, omega
-
-
-
