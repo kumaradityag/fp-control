@@ -61,6 +61,17 @@ Terminal 4 will allow you to check what is happening with ROS on your duckiebot.
 rostopic list
 ```
 
+## Tips
+
+To change `default.yaml` parameters without re-building the code onto the bot, 
+use the following in the 4th terminal:
+
+```{bash}
+rosparam list | grep <PARAM>
+rosparam get <PARAM_NODE>
+rosparam set <PARAM_NODE> <VALUE>
+```
+
 ## Troubleshooting
 
 **I can't see anything when I do `rqt_image_view`**
