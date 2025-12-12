@@ -1,11 +1,11 @@
 #lane_control/lane_controller_node
 
-lookahead_distance: 0.15
+lookahead_distance: 0.12
 max_lookahead_distance: 1.0
 max_forward: 0.6
-kp_steering: 4.5
+kp_steering: 4.6
 
-v_bar: 0.25
+v_bar: 0.30
 
 # TODO: lane filter should publish this information
 d_resolution: 0.011
