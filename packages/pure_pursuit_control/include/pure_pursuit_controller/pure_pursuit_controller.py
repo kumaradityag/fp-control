@@ -14,7 +14,7 @@ class PurePursuitController:
         self.last_found_index = 0
         self.current_pos = [0.0, 0.0]
         self.current_heading = 0.0
-        self.num_frames = 400  # FIXME needed?
+        #  self.num_frames = 400  # FIXME needed?
 
 
     def update_parameters(self, parameters):
@@ -24,6 +24,7 @@ class PurePursuitController:
         lookahead_distance = self.parameters["~lookahead_distance"].value
         v_bar = self.parameters["~v_bar"].value
         kp = self.parameters["~kp_steering"].value
+        width = self.parameters["~chassis_width"].value
 
         # 1. Find goal points
         goal_point, last_found_index = find_goal_point(
@@ -34,9 +35,6 @@ class PurePursuitController:
         )
 
         # 2. Compute control - compute turn error
-        #  FIXME we are in the robot frame, so we don't need to substract 
-        #  current position?
-
         dx, dy = (
             goal_point[0] - self.current_pos[0],
             goal_point[1] - self.current_pos[1],
@@ -50,11 +48,13 @@ class PurePursuitController:
             turn_error = -1 * sgn(turn_error) * (360 - abs(turn_error))
         turn_error_rad = np.deg2rad(turn_error)
 
-        #  L_d = math.sqrt(dx**2 + dy**2)
-        #  if L_d < 0.01:
-        #      return v_bar, 0.0
+        # 3.1. Compute Linear velocity adjusted with curvature => k = 1 / R
+        #  v = v_bar # Naive
+        R = lookahead_distance / (2 * np.sin(turn_error_rad))
+        v = np.sqrt(v_bar * R)
 
-        omega = kp * turn_error_rad
-        v = v_bar
+        # 3.2. Compute Linear velocity adjusted with curvature
+        #  omega = kp * turn_error_rad # from purdue
+        omega = (width * np.sin(turn_error_rad)) / lookahead_distance * v
 
         return v, omega

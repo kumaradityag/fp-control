@@ -4,8 +4,9 @@ lookahead_distance: 0.15
 max_lookahead_distance: 1.0
 max_forward: 0.6
 kp_steering: 4.5
-
 v_bar: 0.25
+chassis_width: 0.15
+
 
 # TODO: lane filter should publish this information
 d_resolution: 0.011

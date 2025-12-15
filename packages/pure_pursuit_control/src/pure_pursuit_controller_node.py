@@ -50,6 +50,11 @@ class PurePursuitControllerNode(DTROS):
             "~stop_line_slowdown", None
         )
 
+        # FIXME: can we get duckie width another way?
+        self.params["~chassis_width"] = rospy.get_param(
+            "~chassis_width", min_value=0.1, max_value=1.0
+        )
+
         # Need to create controller object before updating parameters, otherwise it will fail
         #  self.controller = LaneController(self.params)
         self.controller = PurePursuitController(self.params)
