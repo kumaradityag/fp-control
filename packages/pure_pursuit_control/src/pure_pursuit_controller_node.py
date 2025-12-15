@@ -43,6 +43,9 @@ class PurePursuitControllerNode(DTROS):
         self.params["~kp_steering"] = DTParam(
             "~kp_steering", param_type=ParamType.FLOAT, min_value=0.0, max_value=5.0
         )
+        self.params["~kp_linear"] = DTParam(
+            "~kp_linear", param_type=ParamType.FLOAT, min_value=0.0, max_value=5.0
+        )
         self.params["~v_bar"] = DTParam(
             "~v_bar", param_type=ParamType.FLOAT, min_value=0.0, max_value=5.0
         )

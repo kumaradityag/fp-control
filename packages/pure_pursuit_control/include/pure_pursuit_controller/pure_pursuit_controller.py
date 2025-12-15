@@ -23,7 +23,8 @@ class PurePursuitController:
     def compute_control_action(self, path_points):
         lookahead_distance = self.parameters["~lookahead_distance"].value
         v_bar = self.parameters["~v_bar"].value
-        kp = self.parameters["~kp_steering"].value
+        kp_steering = self.parameters["~kp_steering"].value
+        kp_linear = self.parameters["~kp_linear"].value
         width = self.parameters["~chassis_width"].value
 
         # 1. Find goal points
@@ -50,8 +51,10 @@ class PurePursuitController:
 
         # 3.1. Compute Linear velocity adjusted with curvature => k = 1 / R
         #  v = v_bar # Naive
-        R = lookahead_distance / (2 * np.sin(turn_error_rad))
-        v = np.sqrt(v_bar * R)
+        R = np.abs(lookahead_distance / (2 * np.sin(turn_error_rad)))
+        scaling_factor = 1.0 / (1.0 + kp_linear / R) if R > 0.0 else 1.0
+        v = v_bar * scaling_factor
+        #  v = np.sqrt(v_bar * R)
 
         # 3.2. Compute Linear velocity adjusted with curvature
         #  omega = kp * turn_error_rad # from purdue
