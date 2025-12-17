@@ -41,11 +41,20 @@ class PurePursuitController:
         abs_target_angle = math.atan2(dy, dx)
         turn_error = abs_target_angle - np.deg2rad(self.current_heading)
 
-        #  L_d = math.sqrt(dx**2 + dy**2)
+        L_d = math.sqrt(dx**2 + dy**2)
         #  if L_d < 0.01:
         #      return v_bar, 0.0
 
+        #  v = v_bar
+        width = self.parameters["~width"].value
+        v_max = self.parameters["~v_max"].value
+        omega_factor = self.parameters["~omega_factor"].value
+
+
+        scaling_factor = 1.0 / (1.0 + np.sin(turn_error))
+
         v = v_bar
         omega = kp * turn_error
-
-        return v, omega
+        omega2 = omega_factor * (width * np.sin(turn_error) * v) / L_d
+        print(omega, omega2)
+        return v, omega2
