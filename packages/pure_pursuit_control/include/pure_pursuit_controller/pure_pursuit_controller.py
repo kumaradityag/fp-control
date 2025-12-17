@@ -41,20 +41,29 @@ class PurePursuitController:
         abs_target_angle = math.atan2(dy, dx)
         turn_error = abs_target_angle - np.deg2rad(self.current_heading)
 
-        L_d = math.sqrt(dx**2 + dy**2)
+        # Need to recompute the lookahead distance in case we the goal point 
+        # used is not one of the intersection point at the original lookahead 
+        # distance
+        L_d = math.sqrt(dx**2 + dy**2) 
         #  if L_d < 0.01:
         #      return v_bar, 0.0
 
         #  v = v_bar
         width = self.parameters["~width"].value
-        v_max = self.parameters["~v_max"].value
+        #  v_max = self.parameters["~v_max"].value
         omega_factor = self.parameters["~omega_factor"].value
+        v_bar_min = self.parameters["~v_bar_min"].value
+        v_bar_max = self.parameters["~v_bar_max"].value
 
-
-        scaling_factor = 1.0 / (1.0 + np.sin(turn_error))
 
         v = v_bar
+        R = np.abs(L_d / (2.0 * np.sin(turn_error)))
+        #  scaling_factor = 1.0 / (1.0 + R)
+        #  scaling_factor = 1.0 / (1.0 + R) if R < 
+        v2 = np.clip(v_bar * R, v_bar_min, v_bar_max)
+        print(R, v, v2)
+
         omega = kp * turn_error
         omega2 = omega_factor * (width * np.sin(turn_error) * v) / L_d
-        print(omega, omega2)
-        return v, omega2
+        #  print(omega, omega2)
+        return v2, omega2
