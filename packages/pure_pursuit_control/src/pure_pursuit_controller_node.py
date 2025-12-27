@@ -40,6 +40,9 @@ class PurePursuitControllerNode(DTROS):
             min_value=0.0,
             max_value=1.0,
         )
+        self.params["~v_bar"] = DTParam(
+            "~v_bar", param_type=ParamType.FLOAT, min_value=0.0, max_value=5.0
+        )
         self.params["~v_bar_max"] = DTParam(
             "~v_bar_max", param_type=ParamType.FLOAT, min_value=0.0, max_value=5.0
         )

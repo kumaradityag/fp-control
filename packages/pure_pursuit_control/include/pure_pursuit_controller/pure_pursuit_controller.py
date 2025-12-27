@@ -47,6 +47,7 @@ class PurePursuitController:
 
         width = self.parameters["~width"].value
         omega_factor = self.parameters["~omega_factor"].value
+        v_bar = self.parameters["~v_bar"].value
         v_bar_min = self.parameters["~v_bar_min"].value
         v_bar_max = self.parameters["~v_bar_max"].value
 
