@@ -33,7 +33,7 @@ Then in terminal 1, launch the duckiematrix. There are two map options within th
 ```
 # Check if the duckiebot is active
 dts fleet discover
-dts matrix run --standalone --map ./assets/duckiematrix/map/straight/
+dts matrix run --standalone --map ./assets/duckiematrix/map/loop/
 ```
 
 In terminal 2:
