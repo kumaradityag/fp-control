@@ -1,0 +1,3 @@
+kp_steering: 2.0
+lookahead_distance: 0.1
+v_bar: 0.25
