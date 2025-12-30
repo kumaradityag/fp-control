@@ -8,12 +8,4 @@ v_bar_min: 0.3
 width: 0.1
 omega_factor: 100.0
 
-# TODO: lane filter should publish this information
-d_resolution: 0.011
-phi_resolution: 0.051
-
-stop_line_slowdown:
-  start: 0.4
-  end: 0.1
-
 verbose: 0
