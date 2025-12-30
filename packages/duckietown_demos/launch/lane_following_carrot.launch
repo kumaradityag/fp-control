@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<launch>
+
+    <!-- Robot name + camera topic -->
+    <arg name="veh" default="$(env VEHICLE_NAME)" />
+    <arg name="camera_topic" default="camera_node" />
+    <arg name="param_file_name" default="default" />
+    <arg name="traffic_mode" default="RHT" />
+
+    <!-- Anti Instagram -->
+    <remap from="anti_instagram_node/uncorrected_image/compressed"
+           to="$(arg camera_topic)/image/compressed"/>
+    <include file="$(find anti_instagram)/launch/anti_instagram_node.launch">
+        <arg name="veh" value="$(arg veh)"/>
+    </include>
+
+    <!-- Line Detector -->
+    <remap from="line_detector_node/image/compressed"
+           to="$(arg camera_topic)/image/compressed"/>
+    <remap from="line_detector_node/camera_info"
+           to="$(arg camera_topic)/camera_info"/>
+    <remap from="line_detector_node/thresholds"
+           to="anti_instagram_node/thresholds"/>
+    <include file="$(find line_detector)/launch/line_detector_node.launch">
+        <arg name="veh" value="$(arg veh)"/>
+        <arg name="param_file_name" value="$(arg param_file_name)"/>
+        <arg name="traffic_mode" value="$(arg traffic_mode)"/>
+    </include>
+
+    <!-- Ground Projection -->
+    <remap from="ground_projection_node/lineseglist_in"
+           to="line_detector_node/segment_list"/>
+    <remap from="ground_projection_node/cali_image"
+           to="$(arg camera_topic)/image/raw"/>
+    <remap from="ground_projection_node/camera_info"
+           to="$(arg camera_topic)/camera_info"/>
+    <include file="$(find ground_projection)/launch/ground_projection_node.launch">
+        <arg name="veh" value="$(arg veh)"/>
+        <arg name="param_file_name" value="$(arg param_file_name)"/>
+    </include>
+
+    <!-- Trajectory Planner -->
+    <remap from="trajectory_planner_node/segments"
+       to="ground_projection_node/lineseglist_out"/>
+    <include file="$(find trajectory_planner)/launch/trajectory_planner_node.launch">
+       <arg name="veh" value="$(arg veh)"/>
+       <arg name="param_file_name" value="$(arg param_file_name)"/>
+    </include>
+
+    <!-- Pure Pursuit Carrot Controller -->
+    <remap from="pure_pursuit_carrot_node/trajectory"
+           to="trajectory_planner_node/trajectory" />
+    <remap from="pure_pursuit_carrot_node/wheels_cmd"
+           to="wheels_driver_node/wheels_cmd"/>
+    <remap from="pure_pursuit_carrot_node/car_cmd"
+           to="car_cmd_switch_node/cmd" />
+    <remap from="pure_pursuit_carrot_node/stop_line_reading"
+           to="stop_line_filter_node/stop_line_reading" />
+    <remap from="pure_pursuit_carrot_node/wheels_cmd"
+           to="wheels_driver_node/wheels_cmd"/>
+    <include file="$(find pure_pursuit_carrot)/launch/pure_pursuit_carrot_node.launch">
+        <arg name="veh" value="$(arg veh)"/>
+        <arg name="param_file_name" value="$(arg param_file_name)"/>
+    </include>
+
+</launch>
