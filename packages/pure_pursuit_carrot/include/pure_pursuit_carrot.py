@@ -22,11 +22,8 @@ class PurePursuitCarrotController:
 
     def compute_control_action(self, path_points):
         lookahead_distance = self.parameters["~lookahead_distance"].value
-        width = self.parameters["~width"].value
-        omega_factor = self.parameters["~omega_factor"].value
         v_bar = self.parameters["~v_bar"].value
-        v_bar_min = self.parameters["~v_bar_min"].value
-        v_bar_max = self.parameters["~v_bar_max"].value
+        kp_steering = self.parameters["~kp_steering"].value
 
         # 1. Find goal points
         goal_point, _ = find_goal_point(
@@ -49,8 +46,7 @@ class PurePursuitCarrotController:
         # distance
         L_d = math.sqrt(dx**2 + dy**2)
 
-        R = np.abs(L_d / (2.0 * np.sin(turn_error)))
-        v = np.clip(v_bar * R, v_bar_min, v_bar_max)
-        omega = omega_factor * (width * np.sin(turn_error) * v) / L_d
+        omega = kp_steering * turn_error
+        v = v_bar
 
         return v, omega

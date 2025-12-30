@@ -39,17 +39,8 @@ class PurePursuitCarrotNode(DTROS):
         self.params["~v_bar"] = DTParam(
             "~v_bar", param_type=ParamType.FLOAT, min_value=0.0, max_value=5.0
         )
-        self.params["~v_bar_max"] = DTParam(
-            "~v_bar_max", param_type=ParamType.FLOAT, min_value=0.0, max_value=5.0
-        )
-        self.params["~v_bar_min"] = DTParam(
-            "~v_bar_min", param_type=ParamType.FLOAT, min_value=0.0, max_value=5.0
-        )
-        self.params["~width"] = DTParam(
-            "~width", param_type=ParamType.FLOAT, min_value=0.0, max_value=5.0
-        )
-        self.params["~omega_factor"] = DTParam(
-            "~omega_factor", param_type=ParamType.FLOAT, min_value=0.0, max_value=5.0
+        self.params["~kp_steering"] = DTParam(
+            "~kp_steering", param_type=ParamType.FLOAT, min_value=0.0, max_value=5.0
         )
 
         # Need to create controller object before updating parameters, otherwise it will fail
