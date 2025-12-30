@@ -1,0 +1,7 @@
+lookahead_distance: 0.20
+v_bar: 0.25
+v_bar_max: 0.30
+v_bar_min: 0.2
+width: 0.1
+omega_factor: 100.0
+
