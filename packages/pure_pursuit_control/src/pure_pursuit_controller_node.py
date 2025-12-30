@@ -55,9 +55,6 @@ class PurePursuitControllerNode(DTROS):
         self.params["~omega_factor"] = DTParam(
             "~omega_factor", param_type=ParamType.FLOAT, min_value=0.0, max_value=5.0
         )
-        self.params["~stop_line_slowdown"] = rospy.get_param(
-            "~stop_line_slowdown", None
-        )
 
         # Need to create controller object before updating parameters, otherwise it will fail
         #  self.controller = LaneController(self.params)
