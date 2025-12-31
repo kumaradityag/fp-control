@@ -96,7 +96,7 @@ def decide_and_smooth(xs, ys, coeffs, trajectory_buffer):
         return prev  # fallback to previous
 
     # Case 3: smooth the trajectory
-    # xs_s, ys_s = trajectory_buffer.smooth(xs, ys)
+    xs_s, ys_s = trajectory_buffer.smooth(xs, ys)
 
     # Add smoothed trajectory to the buffer
     trajectory_buffer.add(xs, ys, coeffs)

@@ -2,7 +2,7 @@ min_forward: -0.2
 max_forward: 0.6
 n_samples: 30
 lane_width: 0.21
-epsilon: 0.01
+epsilon: 0.02
 
 yellow_pts_threshold: 5
 white_pts_threshold: 5
