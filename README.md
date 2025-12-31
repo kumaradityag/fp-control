@@ -1,87 +1,157 @@
 # Duckietown Fall 2025 - Final Project - Control
 
-We aim to do map-free lane following in this project. We plan to use a Pure Pursuit controller to achieve this.
+We aim to do map-free lane following in this project. We change the existing Duckietown lane following stack by introducing trajectory generation and a pure pursuit controller.
 
-## Running this thing
+To test the code, first clone the project GitHub repository.
 
-I assume you have a duckiebot setup, know how to start a virtual duckiebot, and know your way around the duckiematrix.
-
-This repo follows the `template-ros` provided by Duckietown. If the requirements listed above are complete, you should be able to build the image specified by this repo and run things on your duckiebot (virtual or not).
-
-The steps assumes a virtual duckiebot called `vbot` running. Change this to your duckiebot name please.
-
-Follow these steps:
-```bash
-# create the virtual bot
-dts duckiebot virtual create --type duckiebot --configuration DB21J vbot
-dts duckiebot virtual start vbot
-
-# update
-dts update
-dts desktop update
-dts duckiebot update vbot
-
+``` bash
 git clone git@github.com:kumaradityag/fp-control
 ```
 
-You will need 4 terminals to view everything needed. In all terminals:
-```bash
-cd fp-control
+These instructions assume you have the following:
+
+- A duckietown-shell. You can verify that you have sucessfully installed
+  it using `dts --version`. If that’s not the case, please follow the
+  instructions
+  [here](https://docs.duckietown.com/daffy/opmanual-duckiebot/setup/setup_laptop/setup_dt_shell.html)
+- You have created your virtual duckiebot. You can verify that your
+  virtual duckie exists with the command
+  `dts duckiebot virtual start vbot` and then `dts fleet discover`.
+  `vbot` is the name of our virtual duckie, but feel free to replace it
+  with your own virtual duckie name
+- You have your real life duckiebot setup. This step is only required if
+  you want to test the demo in real life. If you want to get your duckie
+  hardware, see the official documentation
+  [here](https://docs.duckietown.com/daffy/opmanual-duckiebot/preliminaries_hardware/get_hardware/index.html)
+
+## Understanding the project architecture
+
+The most important directories of our projects are
+`packages/trajectory_planner` and `packages/pure_pursuit_control`, which
+are where our trajectory generation code and our pure pursuit code live.
+
+Virtual and physical duckiebot can behave slightly differently because
+of real-world physics, so they respond to the same parameters
+differently. Additionally, in our current setup, driving in the inner or
+outter lane also require different parameters. Therefore, you will
+probably need to tune your parameters for your own duckiebot.
+
+The configs for the trajectory planner and the pure pursuit controller
+can be found respectively inside
+`packages/trajectory_planner/config/trajectory_planner_node/default.yaml`
+and
+`packages/pure_pursuit_control/config/pure_pursuit_control_node/default.yaml`.
+Additional config information is present at the bottom.
+
+## Setup
+
+You will need at least three terminals to spin and view everything
+needed. Replace `<duckie_name>` with your duckiebot name.
+
+Preliminaries (in every terminal):
+
+``` bash
+# Set robot name
+export ROBOT_NAME=<duckie_name>
 ```
 
-Then in terminal 1, launch the duckiematrix. There are two map options within this repo - `straight` and `loop`:
-```
-# Check if the duckiebot is active
-dts fleet discover
+Preliminaries for the matrix (if needed):
+
+``` bash
 dts matrix run --standalone --map ./assets/duckiematrix/map/loop/
+dts matrix attach $ROBOT_NAME map_0/vehicle_0
+```
+
+All these other commands need to run from the project repository:
+
+In terminal 1:
+
+``` bash
+dts devel build -H $ROBOT_NAME -f
 ```
 
 In terminal 2:
-```bash
-dts matrix attach vbot map_0/vehicle_0
-dts devel build -H vbot -f
-dts devel run -H vbot -L lane-following
+
+``` bash
+# To view the debug images
+dts duckiebot image_viewer $ROBOT_NAME
 ```
 
 In terminal 3:
-```bash
-dts gui vbot
-# Wait for the entrypoint - inside it run:
-rqt_image_view
+
+``` bash
+# For emergency stop
+dts duckiebot keyboard_control $ROBOT_NAME
 ```
 
 In terminal 4:
-```bash
-ssh duckie@vbot.local
+
+``` bash
+# If you want to manually change some of the param values
+ssh duckie@<duckie_name>.local
 # After logging into your duckiebot:
 docker exec -it ros-interface bash
-```
-Terminal 4 will allow you to check what is happening with ROS on your duckiebot. For example you'll be able to run commands like:
-```bash
-rostopic list
+rosparam list | grep <param_search_query>
+rosparam set <param_name> <value>
 ```
 
-## Tips
+### Run the carrot approach
 
-To change `default.yaml` parameters without re-building the code onto the bot, 
-use the following in the 4th terminal:
+In terminal 1:
 
-```{bash}
-rosparam list | grep <PARAM>
-rosparam get <PARAM_NODE>
-rosparam set <PARAM_NODE> <VALUE>
+``` bash
+# For physical duckie
+dts devel run -H $ROBOT_NAME -L lane-following-carrot-physical-outer
+dts devel run -H $ROBOT_NAME -L lane-following-carrot-physical-inner
+
+# For virtual duckie
+dts devel run -H $ROBOT_NAME -L lane-following-carrot-virtual-outer
+dts devel run -H $ROBOT_NAME -L lane-following-carrot-virtual-inner
 ```
 
-## Troubleshooting
+### Run the tangent approach
 
-**I can't see anything when I do `rqt_image_view`**
+``` bash
+# For physical duckie
+dts devel run -H $ROBOT_NAME -L lane-following-tangent-physical-outer
+dts devel run -H $ROBOT_NAME -L lane-following-tangent-physical-inner
 
-- go to `<robotname>.local` => Login => Portainer
-- restart robot with `dts duckiebot virtual restart vbot`
+# For virtual duckie
+dts devel run -H $ROBOT_NAME -L lane-following-tangent-virtual-outer
+dts devel run -H $ROBOT_NAME -L lane-following-tangent-virtual-inner
+```
 
+## Config Descriptions
 
+The trajectory planner node has the following config parameters:
 
-## Current Progress
-@kumaradityag: I have written a node to compute a basic trajectory and publish it to `/vbot/trajectory_planner_node/trajectory`. A debug image should also be published with the trajectory in <span style="color:red">red</span>. The debug image topic is `/vbot/trajectory_planner_node/debug/trajectory_image/compressed`. Use `rqt_image_view` to view it. The trajectory is *not* great now. Working on fixing it :)
+- `min_forward`: minimum distance at which we consider trajectory points
+- `max_forward`: maximum distance at which we consider trajectory points
+- `n_samples`: number of samples used for ransac
+- `lane_width`: width of the lane in meters
+- `epsilon`: error around lane width
+- `yellow_pts_threshold`: minimum points in the trajectory for the
+  yellow lane to be valid
+- `white_pts_threshold`: minimum points in the trajectory for the white
+  lane to be valid
+- `default_mode`: relying on WHITE/YELLOW lane
+- `ransac_max_iterations`: number of iterations for ransac to compute
+  inliers
+- `ransac_distance_threshold`: max error to separate inliers from
+  outliers (in m)
+- `poly_degree`: polynomial degree for ransac
+- `buffer_size`: number of previous trajectory saved in buffer
+- `buffer_smooth_alpha`: float number between 0-1 used to smooth out
+  current trajectory based on the previous one
+- `buffer_theta_threshold`: theta angle threshold for heading change in
+  degrees
 
-@yukikongju: I have started writting the pure pursuit package in the branch feature/pure_pursuit. Pure Pursuit is not implemented yet, but working on it:)
+The pure pursuit control node has the following config parameters:
+
+- `lookahead_distance`: distance at which the pure pursuit controller
+  look ahead (in cm)
+- `v_bar`: linear velocity
+- `v_bar_max`: maximal linear velocity
+- `v_bar_min`: minimal linear velocity
+- `width`: chassis width of the duckie. Should stay 0.1
+- `omega_factor`: how hard we want the duckie to turn
