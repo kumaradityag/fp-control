@@ -78,7 +78,7 @@ class TrajectoryBuffer:
         blended = alpha * current + (1 - alpha) * previous
         """
         dev = self.deviation(xs, ys)
-        if dev > self.change_threshold:
+        if dev > self.theta_threshold:
             return xs, ys
 
         prev = self.last()
